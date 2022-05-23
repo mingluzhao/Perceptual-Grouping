@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import pygame
+# import pygame
 import random
 import math
 from pygame.locals import *
@@ -530,6 +530,7 @@ def checkPolicy(policyA, policyB, soldiersA, soldiersB):
 
 
 def transformPolicyToSoldierMove(policy):
+    policy = list(policy)
     soldierMove = [0 for i in range(len(policy))]
     if policy.count(1) > 0:
         index = policy.index(1)
@@ -584,15 +585,15 @@ def simulateWarProcess(soldiersA, soldiersB):
         soldiersB -= lostSoldierB[0]
         soldiersA = max(soldiersA, 0)
         soldiersB = max(soldiersB, 0)
-        print('A:')
-        print(initialSoldiersA - soldiersA)
-        print('B:')
-        print(initialSoldiersB - soldiersB)
+        # print('A:')
+        # print(initialSoldiersA - soldiersA)
+        # print('B:')
+        # print(initialSoldiersB - soldiersB)
         if soldiersB == 0:
-            print('B empty')
+            # print('B empty')
             return soldiersA, soldiersB, 1
         elif soldiersA == 0:
-            print('A empty')
+            # print('A empty')
             return soldiersA, soldiersB, 2
         if soldiersA/initialSoldiersA < lostLimit and soldiersB/initialSoldiersB >= lostLimit:
             return soldiersA, soldiersB, 2
@@ -604,6 +605,8 @@ def simulateWarProcess(soldiersA, soldiersB):
 
 def calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB, warField,
                                soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB):
+    policyA = list(policyA)
+    policyB = list(policyB)
     winBonus = 0
     warLocation = 0
     remainingSoldiersNewA = [0 for i in range(len(policyA))]
@@ -714,6 +717,7 @@ class CheckAutoPeace:
         self.peaceEndTurn = peaceEndTurn
 
     def __call__(self, policyA, policyB, warField):
+        warField = list(warField)
         boundary = warField.count(1)
         if sum(policyA[boundary-1:]) == 0 and sum(policyB[:boundary+1]) == 0:
             self.count += 1

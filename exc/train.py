@@ -1,121 +1,99 @@
-from src.functionWarGamePure import *
-peaceEndTurn = 3
-checkAutoPeace = CheckAutoPeace(peaceEndTurn)
+import os
+import sys
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+dirName = os.path.dirname(__file__)
+sys.path.append(os.path.join(dirName, '..'))
+sys.path.append(os.path.join(dirName, '..', '..'))
+import logging
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
-calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB, warField,
-                               soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB)
+from src.maddpg.trainer.MADDPG import BuildMADDPGModels, TrainCritic, TrainActor, TrainCriticBySASR, \
+    TrainActorFromSA, TrainMADDPGModelsWithBuffer, ActOneStepOneHot, actByPolicyTrainNoisy, actByPolicyTargetNoisyForNextState
+from src.maddpg.rlTools.RLrun import UpdateParameters, SampleOneStep, SampleFromMemory,\
+    RunTimeStep, RunEpisode, RunAlgorithm, getBuffer, SaveModel, StartLearn
+from src.loadSaveModel import saveVariables
+from src.environment import *
+from src.functionWarGamePure import CheckAutoPeace
+
+layerWidth = [32, 32]
+learningRateActor = 0.01
+learningRateCritic = 0.01
+gamma = 0.95
+tau = 0.01
+bufferSize = 1e4
+minibatchSize = 128
+
+def main():
+    saveAllmodels = True
+
+    maxEpisode = 1000
+    maxTimeStep = 25
+    mapSize = 8
+    compulsoryEndTurn = 25
+    peaceEndTurn = 3
+    numAgents = 2
+
+    checkAutoPeace = CheckAutoPeace(peaceEndTurn)
+    unpackState = UnpackState(mapSize)
+    transit = Transit(unpackState)
+    transitAutopeaceAnnihilation = TransitAutopeaceAnnihilation(compulsoryEndTurn, unpackState, transit, mapSize)
+
+    terminal = Terminal()
+    checkTerminal = CheckTerminal(compulsoryEndTurn, unpackState, checkAutoPeace, checkAnnihilation)
+    rewardFunction = RewardFunction(unpackState, checkTerminal, transitAutopeaceAnnihilation, terminal)
+
+    reset = Reset(mapSize)
+    obsShape = [len(reset()[0])] * 2
+    actionDim = mapSize
+
+    buildMADDPGModels = BuildMADDPGModels(actionDim, numAgents, obsShape)
+    modelsList = [buildMADDPGModels(layerWidth, agentID) for agentID in range(numAgents)]
+
+    trainCriticBySASR = TrainCriticBySASR(actByPolicyTargetNoisyForNextState, learningRateCritic, gamma)
+    trainCritic = TrainCritic(trainCriticBySASR)
+    trainActorFromSA = TrainActorFromSA(learningRateActor)
+    trainActor = TrainActor(trainActorFromSA)
+
+    paramUpdateInterval = 1 #
+    updateParameters = UpdateParameters(paramUpdateInterval, tau)
+    sampleBatchFromMemory = SampleFromMemory(minibatchSize)
+
+    learnInterval = 100
+    learningStartBufferSize = minibatchSize * maxTimeStep
+    startLearn = StartLearn(learningStartBufferSize, learnInterval)
+
+    trainMADDPGModels = TrainMADDPGModelsWithBuffer(updateParameters, trainActor, trainCritic, sampleBatchFromMemory, startLearn, modelsList)
+
+    actOneStepOneModel = ActOneStepOneHot(actByPolicyTrainNoisy)
+    actOneStep = lambda allAgentsStates, runTime: [actOneStepOneModel(model, allAgentsStates) for model in modelsList]
+
+    sampleOneStep = SampleOneStep(transit, rewardFunction)
+    runTimeStep = RunTimeStep(actOneStep, sampleOneStep, trainMADDPGModels)
+    isTerminal = lambda state: terminal.terminal
+    runEpisode = RunEpisode(reset, runTimeStep, maxTimeStep, isTerminal)
+
+    getAgentModel = lambda agentId: lambda: trainMADDPGModels.getTrainedModels()[agentId]
+    getModelList = [getAgentModel(i) for i in range(numAgents)]
+    modelSaveRate = 100
+    fileName = "war{}grids{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau_agent".format(mapSize, maxEpisode, maxTimeStep,
+                                                                                           bufferSize, minibatchSize, learningRateActor,
+                                                                                           learningRateCritic, gamma, tau)
+
+    modelDir = os.path.join(dirName, '..', 'trainedModels')
+    if not os.path.exists(modelDir):
+        os.makedirs(modelDir)
+
+    modelPath = os.path.join(modelDir, fileName)
+    saveModels = [SaveModel(modelSaveRate, saveVariables, getTrainedModel, modelPath + str(i), saveAllmodels) for i, getTrainedModel in enumerate(getModelList)]
+    maddpg = RunAlgorithm(runEpisode, maxEpisode, saveModels, numAgents)
+    replayBuffer = getBuffer(bufferSize)
+    meanRewardList = maddpg(replayBuffer)
 
 
-# transition
 
-def transit(policyA, policyB, remainingSoldiersA, remainingSoldiersB, warField,
-                               soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB)
-    remainingSoldiersA, remainingSoldiersB, warField,
-    soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB = calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB, warField,
-                               soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB)
-
-# reset():
-    # return state
-
-# isTerminal(state):
-    # return True or False
-
-# reward(state):
-    # return 0 if not terminal, return soldierNumber*0.3
-
-
-
-from src.functionWarGamePure import *
-
-
-
-compulsoryEndTurn = 25
-peaceEndTurn = 3
-checkAutoPeace = CheckAutoPeace(peaceEndTurn)
-
-def checkAnnihilation(warField):
-    if warField.count(1) == len(warField) - 1 or warField.count(2) == len(warField) - 1:
-        return 1
-    else:
-        return 0
-
-def transition(policyA, policyB, remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn):
-    remainingSoldiersA, remainingSoldiersB, warField, warLocation = calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB)
-    turn += 1
-    return remainingSoldiersA, remainingSoldiersB, warField, turn
-
-def reset(mapSize):
-    # random soldierFromWarField for each episode, can be constant
-    soldierFromWarFieldA = random.randint(3, 10)
-    soldierFromWarFieldB = random.randint(3, 10)
-    soldierFromBaseA = soldierFromWarFieldA
-    soldierFromBaseB = soldierFromWarFieldB
-
-    remainingSoldiersA = [0 for i in range(mapSize)]
-    remainingSoldiersB = [0 for i in range(mapSize)]
-    remainingSoldiersA[0] = soldierFromBaseA
-    remainingSoldiersB[-1] = soldierFromBaseB
-
-    warField = [0 for i in range(mapSize)]
-    warField[0] = 1
-    warField[-1] = 2
-
-    turn = 0
-    return remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn
-
-def checkTerminal(policyA, policyB, warField, turn, compulsoryEndTurn):
-    isAutoPeace = checkAutoPeace(policyA, policyB, warField)
-    isAnnihilation = checkAnnihilation(warField)
-    if turn >= compulsoryEndTurn or isAutoPeace or isAnnihilation:
-        isTerminal = 1
-    else:
-        isTerminal = 0
-    return isTerminal, isAutoPeace, isAnnihilation
-
-def rewardFunction(remainingSoldiersA, remainingSoldiersB, isTerminal):
-    if isTerminal:
-        rewardA = sum(remainingSoldiersA)
-        rewardB = sum(remainingSoldiersB)
-        return rewardA, rewardB
-    else:
-        return 0, 0
-
-def randomPolicy(mapSize):
-    policy = [0 for i in range(mapSize)]
-    policy[random.randint(0,mapSize-1)] = 1
-    return policy
-
+if __name__ == '__main__':
+    main()
 # simple example
-maxEpisode = 100
-mapSize = 8
-rewardList = []
-for i in range(maxEpisode):
-    remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn = reset(mapSize)
-    while(True):
-        policyA = randomPolicy(mapSize)
-        policyB = randomPolicy(mapSize)
-        remainingSoldiersA, remainingSoldiersB, warField, turn = transition(policyA, policyB, remainingSoldiersA, remainingSoldiersB, warField,
-                                                                            soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn)
-        isTerminal, isAutoPeace, isAnnihilation = checkTerminal(policyA, policyB, warField, turn, compulsoryEndTurn)
-        # handle special case
-        if isAutoPeace or isAnnihilation:
-            remainingTurn = compulsoryEndTurn-turn
-            for j in range(remainingTurn):
-                policyA = [0 for i in range(mapSize)]
-                policyA[0] = 1
-                policyB = [0 for i in range(mapSize)]
-                policyB[-1] = 1
-                remainingSoldiersA, remainingSoldiersB, warField, turn = transition(policyA, policyB,
-                                                                                    remainingSoldiersA,
-                                                                                    remainingSoldiersB, warField,
-                                                                                    soldierFromWarFieldA,
-                                                                                    soldierFromWarFieldB,
-                                                                                    soldierFromBaseA, soldierFromBaseB,
-                                                                                    turn)
-        rewardA, rewardB = rewardFunction(remainingSoldiersA, remainingSoldiersB, isTerminal)
-        if isTerminal:
-            rewardList.append(rewardA)
-            break
 
-    print('episode: {}, rewardA: {}'.format(i, rewardList[i]))
 
