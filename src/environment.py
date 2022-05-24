@@ -85,8 +85,8 @@ class Reset:
         warField[-1] = 2
 
         turn = 0
-        colorAGrids = [1]* self.colorA + [0] * self.colorB
-        colorBGrids = [0]* self.colorA + [1] * self.colorB
+        # colorAGrids = [1]* self.colorA + [0] * self.colorB
+        # colorBGrids = [0]* self.colorA + [1] * self.colorB
 
         # state = list(remainingSoldiersA) + list(remainingSoldiersB) + list(warField) + \
         #         list(colorAGrids) + list(colorBGrids) + \
@@ -135,7 +135,6 @@ class CheckTerminal:
         self.unpackState = unpackState
         self.checkAutoPeace = checkAutoPeace
         self.checkAnnihilation = checkAnnihilation
-        self.step = 0
 
     def __call__(self, policy, state):
         policyA, policyB = policy
@@ -145,7 +144,6 @@ class CheckTerminal:
         remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = self.unpackState(state)
         isAutoPeace = self.checkAutoPeace(policyA, policyB, warField)
         isAnnihilation = self.checkAnnihilation(warField)
-        self.step += 1
         isTerminal = True if turn+1 >= self.compulsoryEndTurn or isAutoPeace or isAnnihilation else False
 
         if isAutoPeace:
