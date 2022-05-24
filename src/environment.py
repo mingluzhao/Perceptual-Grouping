@@ -20,8 +20,26 @@ class UnpackState:
         remainingSoldiersA = state[:self.mapSize]
         remainingSoldiersB = state[self.mapSize: self.mapSize*2]
         warField = state[self.mapSize*2: self.mapSize*3]
-        soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn = state[self.mapSize*3:]
-        return remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn
+        soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = state[self.mapSize*3:]
+        return remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB
+
+
+class Observe:
+    def __init__(self, unpackState, mapSize, agentID): # color from agent's perspective
+        self.unpackState = unpackState
+        self.mapSize = mapSize
+        self.agentID = agentID
+
+    def __call__(self, state):
+        remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = self.unpackState(state)
+        # 0 as red, 1 as blue
+        if self.agentID == 0:
+            colorList = [0]* colorA + [1]*(self.mapSize - colorA)
+        else:
+            colorList = [0] * (self.mapSize - colorB) + [1]* colorB
+        agentObs = list(state[self.agentID][:-2]) + list(colorList) # remove color number
+
+        return agentObs
 
 
 class Transit:
@@ -30,20 +48,25 @@ class Transit:
 
     def __call__(self, state, policy):
         policyA, policyB = policy
-        remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn = self.unpackState(state)
+        policyA = list(policyA) + [0]
+        policyB = [0] + list(policyB)
+
+        remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = self.unpackState(state)
         remainingSoldiersA, remainingSoldiersB, warField, warLocation = calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB,
                                                                                                    warField, soldierFromWarFieldA, soldierFromWarFieldB,
                                                                                                    soldierFromBaseA, soldierFromBaseB)
         turn += 1
-        nextState = list(remainingSoldiersA) + list(remainingSoldiersB) + list(warField) + [soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA,
-                                                                                            soldierFromBaseB, turn]
+        nextState = list(remainingSoldiersA) + list(remainingSoldiersB) + list(warField) + [soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB]
         nextStateArray = [np.array(nextState), np.array(nextState)]
         return nextStateArray
 
 
 class Reset:
-    def __init__(self, mapSize):
+    def __init__(self, mapSize, terminal, colorA, colorB):
         self.mapSize = mapSize
+        self.terminal = terminal
+        self.colorA = colorA
+        self.colorB = colorB
 
     def __call__(self):
         # random soldierFromWarField for each episode, can be constant
@@ -62,7 +85,18 @@ class Reset:
         warField[-1] = 2
 
         turn = 0
-        state = list(remainingSoldiersA) + list(remainingSoldiersB) + list(warField) + [soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn]
+        colorAGrids = [1]* self.colorA + [0] * self.colorB
+        colorBGrids = [0]* self.colorA + [1] * self.colorB
+
+        # state = list(remainingSoldiersA) + list(remainingSoldiersB) + list(warField) + \
+        #         list(colorAGrids) + list(colorBGrids) + \
+        #         [soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn]
+
+        state = list(remainingSoldiersA) + list(remainingSoldiersB) + list(warField) + \
+                [soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn,
+                 self.colorA, self.colorB]
+
+        self.terminal.reset()
         return [np.array(state), np.array(state)]
 
 
@@ -70,18 +104,26 @@ class Terminal(object):
     def __init__(self):
         self.reset()
 
-    def reset(self):
+    def reset(self): # used at the start of each episode
+        # print("before reset: {} autopeace, {} annihilation".format(self.autoPeaceCount, self.annihilationCount))
+        # print("reset terminal")
         self.terminal = False
         self.autoPeace = False
         self.annihilation = False
+        self.autoPeaceCount = 0
+        self.annihilationCount = 0
 
     def isAutoPeace(self):
         self.terminal = True
         self.autoPeace = True
+        self.autoPeaceCount += 1
+        # print("Auto peace, now {} times".format(self.autoPeaceCount))
 
     def isAnnihilation(self):
         self.terminal = True
         self.annihilation = True
+        self.annihilationCount += 1
+        # print("Annihilation, now {} times".format(self.annihilationCount))
 
     def isTerminal(self):
         self.terminal = True
@@ -93,14 +135,23 @@ class CheckTerminal:
         self.unpackState = unpackState
         self.checkAutoPeace = checkAutoPeace
         self.checkAnnihilation = checkAnnihilation
+        self.step = 0
 
     def __call__(self, policy, state):
         policyA, policyB = policy
-        remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn = self.unpackState(state)
+        policyA = list(policyA) + [0]
+        policyB = [0] + list(policyB)
+
+        remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = self.unpackState(state)
         isAutoPeace = self.checkAutoPeace(policyA, policyB, warField)
         isAnnihilation = self.checkAnnihilation(warField)
-        isTerminal = True if turn >= self.compulsoryEndTurn or isAutoPeace or isAnnihilation else False
+        self.step += 1
+        isTerminal = True if turn+1 >= self.compulsoryEndTurn or isAutoPeace or isAnnihilation else False
 
+        if isAutoPeace:
+            print("AutoPeace")
+        if isAnnihilation:
+            print("isAnnihilation")
         return isTerminal, isAutoPeace, isAnnihilation
 
 
@@ -112,19 +163,26 @@ class RewardFunction:
         self.transitAutopeaceAnnihilation = transitAutopeaceAnnihilation
 
     def __call__(self, state, policy, nextState):
-        remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn = self.unpackState(state)
-        self.terminal.terminal, self.terminal.autoPeace, self.terminal.annihilation = self.checkTerminal(policy, state)
+        terminal, autoPeace, annihilation = self.checkTerminal(policy, state)
 
-        if self.terminal.autoPeace or self.terminal.annihilation: # move forward to get rewards automatically
+        if autoPeace:
+            self.terminal.isAutoPeace()
+        if annihilation:
+            self.terminal.isAnnihilation()
+        if terminal:
+            self.terminal.isTerminal()
+
+        if self.terminal.terminal: # move forward to get rewards automatically
             state = self.transitAutopeaceAnnihilation(state)
-            remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn = self.unpackState(state)
-
-        if self.terminal.isTerminal:
+            remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = self.unpackState(state)
             rewardA = sum(remainingSoldiersA)
             rewardB = sum(remainingSoldiersB)
-            return [rewardA, rewardB]
+            reward = [rewardA, rewardB]
         else:
-            return [0, 0]
+            reward = [0, 0]
+        # print("state {}, {}, {}, policy {} vs {}, reward {}".format(remainingSoldiersA, remainingSoldiersB,
+        #                                                             warField, policy[0].argmax(), policy[1].argmax(), reward))
+        return reward
 
 
 def randomPolicy(mapSize):
@@ -141,13 +199,13 @@ class TransitAutopeaceAnnihilation:
         self.transit = transit
 
     def __call__(self, state):
-        remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn = self.unpackState(state)
+        remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = self.unpackState(state)
         remainingTurn = self.compulsoryEndTurn - turn
 
         for j in range(remainingTurn):
-            policyA = [0 for i in range(self.mapSize)]
+            policyA = [0 for i in range(self.mapSize-1)]
             policyA[0] = 1
-            policyB = [0 for i in range(self.mapSize)]
+            policyB = [0 for i in range(self.mapSize-1)]
             policyB[-1] = 1
             policy = [policyA, policyB]
             state = self.transit(state, policy)

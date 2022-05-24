@@ -15,22 +15,43 @@ from src.maddpg.rlTools.RLrun import UpdateParameters, SampleOneStep, SampleFrom
 from src.loadSaveModel import saveVariables
 from src.environment import *
 from src.functionWarGamePure import CheckAutoPeace
+import json
 
 layerWidth = [32, 32]
-learningRateActor = 0.01
-learningRateCritic = 0.01
-gamma = 0.95
-tau = 0.01
-bufferSize = 1e4
-minibatchSize = 128
+saveAllmodels = True
 
 def main():
-    saveAllmodels = True
+    debug = 0
+    if debug:
+        mapSize = 8
+        colorA = 4
+        colorB = mapSize - colorA
+        maxEpisode = 10000
+        maxTimeStep = 25
+        bufferSize = 1e4
+        minibatchSize = 128
+        learningRateActor = 0.01
+        learningRateCritic = 0.01
+        gamma = 0.95
+        tau = 0.01
+        learnInterval = 100
+    else:
+        print(sys.argv)
+        condition = json.loads(sys.argv[1])
+        mapSize = int(condition['mapSize'])
+        colorA = int(condition['colorA'])
+        colorB = int(condition['colorB'])
+        maxEpisode = int(condition['maxEpisode'])
+        maxTimeStep = int(condition['maxTimeStep'])
+        bufferSize = int(condition['bufferSize'])
+        minibatchSize = int(condition['minibatchSize'])
+        learningRateActor = float(condition['learningRateActor'])
+        learningRateCritic = float(condition['learningRateCritic'])
+        gamma = float(condition['gamma'])
+        tau = float(condition['tau'])
+        learnInterval = int(condition['learnInterval'])
 
-    maxEpisode = 1000
-    maxTimeStep = 25
-    mapSize = 8
-    compulsoryEndTurn = 25
+    compulsoryEndTurn = maxTimeStep
     peaceEndTurn = 3
     numAgents = 2
 
@@ -43,9 +64,10 @@ def main():
     checkTerminal = CheckTerminal(compulsoryEndTurn, unpackState, checkAutoPeace, checkAnnihilation)
     rewardFunction = RewardFunction(unpackState, checkTerminal, transitAutopeaceAnnihilation, terminal)
 
-    reset = Reset(mapSize)
-    obsShape = [len(reset()[0])] * 2
-    actionDim = mapSize
+    reset = Reset(mapSize, terminal, colorA, colorB)
+    observe = lambda state: [Observe(unpackState, mapSize, agentID)(state) for agentID in range(numAgents)]
+    actionDim = mapSize - 1
+    obsShape = [len(observe(reset())[obsID]) for obsID in range(numAgents)]
 
     buildMADDPGModels = BuildMADDPGModels(actionDim, numAgents, obsShape)
     modelsList = [buildMADDPGModels(layerWidth, agentID) for agentID in range(numAgents)]
@@ -59,7 +81,6 @@ def main():
     updateParameters = UpdateParameters(paramUpdateInterval, tau)
     sampleBatchFromMemory = SampleFromMemory(minibatchSize)
 
-    learnInterval = 100
     learningStartBufferSize = minibatchSize * maxTimeStep
     startLearn = StartLearn(learningStartBufferSize, learnInterval)
 
@@ -67,18 +88,16 @@ def main():
 
     actOneStepOneModel = ActOneStepOneHot(actByPolicyTrainNoisy)
     actOneStep = lambda allAgentsStates, runTime: [actOneStepOneModel(model, allAgentsStates) for model in modelsList]
-
     sampleOneStep = SampleOneStep(transit, rewardFunction)
-    runTimeStep = RunTimeStep(actOneStep, sampleOneStep, trainMADDPGModels)
+    runTimeStep = RunTimeStep(actOneStep, sampleOneStep, trainMADDPGModels, observe = observe)
     isTerminal = lambda state: terminal.terminal
     runEpisode = RunEpisode(reset, runTimeStep, maxTimeStep, isTerminal)
 
     getAgentModel = lambda agentId: lambda: trainMADDPGModels.getTrainedModels()[agentId]
     getModelList = [getAgentModel(i) for i in range(numAgents)]
-    modelSaveRate = 100
-    fileName = "war{}grids{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau_agent".format(mapSize, maxEpisode, maxTimeStep,
-                                                                                           bufferSize, minibatchSize, learningRateActor,
-                                                                                           learningRateCritic, gamma, tau)
+    modelSaveRate = 1000
+    fileName = "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv_agent".format(mapSize, colorA, colorB,
+               maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval)
 
     modelDir = os.path.join(dirName, '..', 'trainedModels')
     if not os.path.exists(modelDir):
@@ -86,14 +105,12 @@ def main():
 
     modelPath = os.path.join(modelDir, fileName)
     saveModels = [SaveModel(modelSaveRate, saveVariables, getTrainedModel, modelPath + str(i), saveAllmodels) for i, getTrainedModel in enumerate(getModelList)]
-    maddpg = RunAlgorithm(runEpisode, maxEpisode, saveModels, numAgents)
+    maddpg = RunAlgorithm(runEpisode, maxEpisode, saveModels, numAgents, printEpsFrequency=100)
     replayBuffer = getBuffer(bufferSize)
     meanRewardList = maddpg(replayBuffer)
 
 
-
 if __name__ == '__main__':
     main()
-# simple example
 
 

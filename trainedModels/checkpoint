@@ -1,2 +1,0 @@
-model_checkpoint_path: "/Users/zhaominglu/PycharmProjects/perceptual-grouping/exc/../trainedModels/war8grids1000eps25step10000.0buffer128batch0.01acLR0.01crLR0.95gamma0.01tau_agent11000eps"
-all_model_checkpoint_paths: "/Users/zhaominglu/PycharmProjects/perceptual-grouping/exc/../trainedModels/war8grids1000eps25step10000.0buffer128batch0.01acLR0.01crLR0.95gamma0.01tau_agent11000eps"
