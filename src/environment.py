@@ -55,11 +55,19 @@ class Transit:
         remainingSoldiersA, remainingSoldiersB, warField, warLocation = calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB,
                                                                                                    warField, soldierFromWarFieldA, soldierFromWarFieldB,
                                                                                                    soldierFromBaseA, soldierFromBaseB)
+        isWar = (warLocation>0) # TODO: for evaluation
+
         turn += 1
         nextState = list(remainingSoldiersA) + list(remainingSoldiersB) + list(warField) + [soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB]
         nextStateArray = [np.array(nextState), np.array(nextState)]
         return nextStateArray
 
+# policyA = [1] + [0]*7
+# policyB = [0]*7 + [1]
+# remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, \
+# soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = unpackState(state0)
+# calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB)
+#
 
 class Reset:
     def __init__(self, mapSize, terminal, colorA, colorB):
@@ -67,11 +75,19 @@ class Reset:
         self.terminal = terminal
         self.colorA = colorA
         self.colorB = colorB
+        self.soldiersFromWarFieldAList = [10, 9, 8, 7, 6, 5, 7, 6, 7, 10, 9, 7, 10, 9, 8, 3, 5, 4]
+        self.soldiersFromWarFieldBList = [10, 9, 8, 7, 6, 5, 9, 8, 10, 8, 6, 5, 5, 4, 4, 7, 10, 9]
 
     def __call__(self):
         # random soldierFromWarField for each episode, can be constant
-        soldierFromWarFieldA = random.randint(3, 10)
-        soldierFromWarFieldB = random.randint(3, 10)
+        # soldierFromWarFieldA = random.randint(3, 10)
+        # soldierFromWarFieldB = random.randint(3, 10)
+
+        # pseudorandom assignment of sodier number - align with human experiment
+        coin = random.randint(0, len(self.soldiersFromWarFieldAList)-1)
+        soldierFromWarFieldA = self.soldiersFromWarFieldAList[coin]
+        soldierFromWarFieldB = self.soldiersFromWarFieldBList[coin]
+
         soldierFromBaseA = soldierFromWarFieldA
         soldierFromBaseB = soldierFromWarFieldB
 
@@ -85,13 +101,6 @@ class Reset:
         warField[-1] = 2
 
         turn = 0
-        # colorAGrids = [1]* self.colorA + [0] * self.colorB
-        # colorBGrids = [0]* self.colorA + [1] * self.colorB
-
-        # state = list(remainingSoldiersA) + list(remainingSoldiersB) + list(warField) + \
-        #         list(colorAGrids) + list(colorBGrids) + \
-        #         [soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn]
-
         state = list(remainingSoldiersA) + list(remainingSoldiersB) + list(warField) + \
                 [soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn,
                  self.colorA, self.colorB]
@@ -165,8 +174,11 @@ class RewardFunction:
 
         if autoPeace:
             self.terminal.isAutoPeace()
+            print("peace")
         if annihilation:
             self.terminal.isAnnihilation()
+            print("annihilation")
+
         if terminal:
             self.terminal.isTerminal()
 
@@ -183,10 +195,16 @@ class RewardFunction:
         return reward
 
 
-def randomPolicy(mapSize):
-    policy = [0 for i in range(mapSize)]
-    policy[random.randint(0, mapSize-1)] = 1
-    return policy
+
+class RandomPolicy:
+    def __init__(self, mapSize):
+        self.mapSize = mapSize
+
+    def __call__(self, allAgentsStates):
+        actionTaken = random.randint(0, self.mapSize - 2)
+        policy = [0]* (self.mapSize - 1)
+        policy[actionTaken] = 1
+        return np.array(policy)
 
 
 class TransitAutopeaceAnnihilation:
@@ -209,3 +227,14 @@ class TransitAutopeaceAnnihilation:
             state = self.transit(state, policy)
 
         return state
+
+#
+# transitAutopeaceAnnihilation()
+#
+# state0 = [np.array([43, 32, 27, 22, 17,  8,  7,  0,  0,  0,  0,  0,  0,  0,  0,  5,  1,
+#         1,  1,  1,  1,  1,  1,  2,  7,  5,  7,  5, 19,  4,  4]), np.array([43, 32, 27, 22, 17,  8,  7,  0,  0,  0,  0,  0,  0,  0,  0,  5,  1,
+#         1,  1,  1,  1,  1,  1,  2,  7,  5,  7,  5, 19,  4,  4])]
+#
+# state1 = [np.array([7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 1, 0, 0, 0, 0, 0,
+#        0, 2, 7, 9, 7, 9, 0, 4, 4]), np.array([7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 1, 0, 0, 0, 0, 0,
+#        0, 2, 7, 9, 7, 9, 0, 4, 4])]

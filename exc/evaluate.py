@@ -8,10 +8,7 @@ sys.path.append(os.path.join(dirName, '..', '..'))
 import logging
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
-from src.maddpg.trainer.MADDPG import BuildMADDPGModels, TrainCritic, TrainActor, TrainCriticBySASR, \
-    TrainActorFromSA, TrainMADDPGModelsWithBuffer, ActOneStepOneHot, actByPolicyTrainNoisy, actByPolicyTargetNoisyForNextState
-from src.maddpg.rlTools.RLrun import UpdateParameters, SampleOneStep, SampleFromMemory,\
-    RunTimeStep, RunEpisode, RunAlgorithm, getBuffer, SaveModel, StartLearn
+from src.maddpg.trainer.MADDPG import BuildMADDPGModels, ActOneStepOneHot, actByPolicyTrainNoisy
 from src.loadSaveModel import saveVariables, restoreVariables, saveToPickle
 from src.trajectory import SampleTrajectory
 from src.environment import *
@@ -26,65 +23,130 @@ bufferSize = 1e4
 minibatchSize = 128
 
 
-def calcRewardByTraj(traj):
+def calcAgentsReward(traj):
     rewardIDinTraj = 2
-    getWolfReward = lambda allAgentsReward: np.sum([allAgentsReward[wolfID] for wolfID in wolvesID])
-    rewardList = [getWolfReward(timeStepInfo[rewardIDinTraj]) for timeStepInfo in traj]
-    # print(rewardList)
-    trajReward = np.sum(rewardList)
-    return trajReward
+    agentsTrajReward = np.sum([timeStepInfo[rewardIDinTraj] for timeStepInfo in traj], axis=0)
+    return agentsTrajReward
 
 def main():
-    saveAllmodels = True
+    mapSizeLevels = [8]
+    colorLevels = [(4, 4), (5, 3), (3, 5)]
+    maxEpisodeLevels = [30000]
+    maxTimeStepLevels = [25]
+    bufferSizeLevels = [10000, 100000]
+    minibatchSizeLevels = [64, 128, 256]
+    learningRateActorLevels = [0.01]
+    learningRateCriticLevels = [0.01]
+    gammaLevels = [0.95]
+    tauLevels = [0.01]
+    learnIntervalLevels = [20, 50, 100]
 
-    maxEpisode = 1000
-    maxTimeStep = 25
-    mapSize = 8
-    compulsoryEndTurn = 25
-    peaceEndTurn = 3
-    numAgents = 2
-    maxRunningStepsToSample = maxTimeStep
+    conditionLevels = [(mapSize, colorA, colorB, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor,
+                        learningRateCritic, gamma, tau, learnInterval)
+                       for mapSize in mapSizeLevels
+                       for colorA, colorB in colorLevels
+                       for maxEpisode in maxEpisodeLevels
+                       for maxTimeStep in maxTimeStepLevels
+                       for bufferSize in bufferSizeLevels
+                       for minibatchSize in minibatchSizeLevels
+                       for learningRateActor in learningRateActorLevels
+                       for learningRateCritic in learningRateCriticLevels
+                       for gamma in gammaLevels
+                       for tau in tauLevels
+                       for learnInterval in learnIntervalLevels]
 
-    checkAutoPeace = CheckAutoPeace(peaceEndTurn)
-    unpackState = UnpackState(mapSize)
-    transit = Transit(unpackState)
-    transitAutopeaceAnnihilation = TransitAutopeaceAnnihilation(compulsoryEndTurn, unpackState, transit, mapSize)
+    for condition in conditionLevels:
+        mapSize, colorA, colorB, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval = condition
 
-    terminal = Terminal()
-    checkTerminal = CheckTerminal(compulsoryEndTurn, unpackState, checkAutoPeace, checkAnnihilation)
-    rewardFunction = RewardFunction(unpackState, checkTerminal, transitAutopeaceAnnihilation, terminal)
+        compareWithRandom = True
+        modelIDToTest = 0
+        trainEps = maxEpisode
 
-    reset = Reset(mapSize, terminal, colorA)
-    obsShape = [len(reset()[0])] * 2
-    actionDim = mapSize - 1
+        # mapSize = 8
+        # colorA = 4
+        # colorB = 4
+        # maxEpisode = 30000
+        # maxTimeStep = 25
+        # bufferSize = 10000
+        # minibatchSize = 64
+        # learningRateActor = 0.01
+        # learningRateCritic = 0.01
+        # gamma = 0.95
+        # tau = 0.01
+        # learnInterval = 100
 
-    buildMADDPGModels = BuildMADDPGModels(actionDim, numAgents, obsShape)
-    modelsList = [buildMADDPGModels(layerWidth, agentID) for agentID in range(numAgents)]
+        compulsoryEndTurn = maxTimeStep
+        peaceEndTurn = 3
+        numAgents = 2
 
+        checkAutoPeace = CheckAutoPeace(peaceEndTurn)
+        unpackState = UnpackState(mapSize)
+        transit = Transit(unpackState)
+        transitAutopeaceAnnihilation = TransitAutopeaceAnnihilation(compulsoryEndTurn, unpackState, transit, mapSize)
 
-    dirName = os.path.dirname(__file__)
-    fileName = "war{}grids{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau_agent".format(mapSize, maxEpisode, maxTimeStep,
-                                                                                           bufferSize, minibatchSize, learningRateActor,
-                                                                                           learningRateCritic, gamma, tau)
+        terminal = Terminal()
+        checkTerminal = CheckTerminal(compulsoryEndTurn, unpackState, checkAutoPeace, checkAnnihilation)
+        rewardFunction = RewardFunction(unpackState, checkTerminal, transitAutopeaceAnnihilation, terminal)
 
-    modelPaths = [os.path.join(dirName, '..', 'trainedModels', fileName + str(i) ) for i in range(numAgents)]
-    [restoreVariables(model, path) for model, path in zip(modelsList, modelPaths)]
+        reset = Reset(mapSize, terminal, colorA, colorB)
+        observe = lambda state: [Observe(unpackState, mapSize, agentID)(state) for agentID in range(numAgents)]
+        actionDim = mapSize - 1
+        obsShape = [len(observe(reset())[obsID]) for obsID in range(numAgents)]
 
-    actOneStepOneModel = ActOneStepOneHot(actByPolicyTrainNoisy)
-    policy = lambda allAgentsStates: [actOneStepOneModel(model, allAgentsStates) for model in modelsList]
+        isTerminal = lambda state: terminal.terminal
+        sampleTrajectory = SampleTrajectory(maxTimeStep, transit, isTerminal, rewardFunction, reset)
 
-    rewardList = []
-    numTrajToSample = 100
-    trajList = []
-    for i in range(numTrajToSample):
-        traj = sampleTrajectory(policy)
-        rew = calcWolvesTrajReward(traj, wolvesID)
-        rewardList.append(rew)
-        trajList.append(list(traj))
+        if not compareWithRandom:
+            buildMADDPGModels = BuildMADDPGModels(actionDim, numAgents, obsShape)
+            modelsList = [buildMADDPGModels(layerWidth, agentID) for agentID in range(numAgents)]
+            dirName = os.path.dirname(__file__)
+            fileName = "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv_agent".format(mapSize, colorA, colorB,
+                       maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval)
 
-    meanTrajReward = np.mean(rewardList)
-    seTrajReward = np.std(rewardList) / np.sqrt(len(rewardList) - 1)
-    print('meanTrajReward', meanTrajReward, 'se ', seTrajReward)
+            modelPaths = [os.path.join(dirName, '..', 'trainedModels', fileName + str(i)+ str(trainEps) + 'eps') for i in range(numAgents)]
+            [restoreVariables(model, path) for model, path in zip(modelsList, modelPaths)]
+            actOneStepOneModel = ActOneStepOneHot(actByPolicyTrainNoisy)
+            policy = lambda allAgentsStates: [actOneStepOneModel(model, observe(allAgentsStates)) for model in modelsList]
+
+            rewardList = []
+            numTrajToSample = 10
+            trajList = []
+            for i in range(numTrajToSample):
+                traj = sampleTrajectory(policy)
+                rew = calcAgentsReward(traj)
+                rewardList.append(rew)
+                trajList.append(list(traj))
+
+            meanTrajReward = np.mean(rewardList)
+            seTrajReward = np.std(rewardList) / np.sqrt(len(rewardList) - 1)
+            print('meanTrajReward', meanTrajReward, 'se ', seTrajReward)
+
+        else:
+            buildMADDPGModels = BuildMADDPGModels(actionDim, numAgents, obsShape)
+            modelsList = [buildMADDPGModels(layerWidth, agentID) for agentID in range(numAgents)]
+            dirName = os.path.dirname(__file__)
+            fileName = "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv_agent".format(mapSize, colorA, colorB,
+                       maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval)
+
+            modelPaths = [os.path.join(dirName, '..', 'trainedModels', fileName + str(i)+ str(trainEps) + 'eps') for i in range(numAgents)]
+            [restoreVariables(model, path) for model, path in zip(modelsList, modelPaths)]
+            actOneStepOneModel = ActOneStepOneHot(actByPolicyTrainNoisy)
+            modelPolicy = lambda allAgentsStates: actOneStepOneModel(modelsList[modelIDToTest], allAgentsStates)
+            randomPolicy = RandomPolicy(mapSize)
+            policy = lambda allAgentsStates: [modelPolicy(observe(allAgentsStates)), randomPolicy(observe(allAgentsStates))]
+
+            rewardList = []
+            numTrajToSample = 10
+            trajList = []
+            for i in range(numTrajToSample):
+                traj = sampleTrajectory(policy)
+                rew = calcAgentsReward(traj)
+                rewardList.append(rew)
+                trajList.append(list(traj))
+
+            meanTrajReward = np.mean(rewardList)
+            seTrajReward = np.std(rewardList) / np.sqrt(len(rewardList) - 1)
+            print('meanTrajReward', meanTrajReward, 'se ', seTrajReward)
 
 
 
