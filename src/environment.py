@@ -43,8 +43,9 @@ class Observe:
 
 
 class Transit:
-    def __init__(self, unpackState):
+    def __init__(self, unpackState, terminal):
         self.unpackState = unpackState
+        self.terminal = terminal
 
     def __call__(self, state, policy):
         policyA, policyB = policy
@@ -55,7 +56,8 @@ class Transit:
         remainingSoldiersA, remainingSoldiersB, warField, warLocation = calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB,
                                                                                                    warField, soldierFromWarFieldA, soldierFromWarFieldB,
                                                                                                    soldierFromBaseA, soldierFromBaseB)
-        isWar = (warLocation>0) # TODO: for evaluation
+        if warLocation>0: # isWar # TODO: for evaluation
+            self.terminal.isWar(warLocation)
 
         turn += 1
         nextState = list(remainingSoldiersA) + list(remainingSoldiersB) + list(warField) + [soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB]
@@ -69,24 +71,29 @@ class Transit:
 # calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB)
 #
 
+
+
 class Reset:
-    def __init__(self, mapSize, terminal, colorA, colorB):
+    def __init__(self, mapSize, terminal, colorA, colorB, soldierFromWarFieldA = -1, soldierFromWarFieldB= -1):
         self.mapSize = mapSize
         self.terminal = terminal
         self.colorA = colorA
         self.colorB = colorB
+        self.soldierFromWarFieldA = soldierFromWarFieldA
+        self.soldierFromWarFieldB = soldierFromWarFieldB
         self.soldiersFromWarFieldAList = [10, 9, 8, 7, 6, 5, 7, 6, 7, 10, 9, 7, 10, 9, 8, 3, 5, 4]
         self.soldiersFromWarFieldBList = [10, 9, 8, 7, 6, 5, 9, 8, 10, 8, 6, 5, 5, 4, 4, 7, 10, 9]
 
     def __call__(self):
-        # random soldierFromWarField for each episode, can be constant
-        # soldierFromWarFieldA = random.randint(3, 10)
-        # soldierFromWarFieldB = random.randint(3, 10)
-
-        # pseudorandom assignment of sodier number - align with human experiment
-        coin = random.randint(0, len(self.soldiersFromWarFieldAList)-1)
-        soldierFromWarFieldA = self.soldiersFromWarFieldAList[coin]
-        soldierFromWarFieldB = self.soldiersFromWarFieldBList[coin]
+        if self.soldierFromWarFieldA != -1 and self.soldierFromWarFieldB != -1:
+            # specify reset state
+            soldierFromWarFieldA = self.soldierFromWarFieldA
+            soldierFromWarFieldB = self.soldierFromWarFieldB
+        else:
+            # pseudorandom assignment of sodier number - align with human experiment
+            coin = random.randint(0, len(self.soldiersFromWarFieldAList)-1)
+            soldierFromWarFieldA = self.soldiersFromWarFieldAList[coin]
+            soldierFromWarFieldB = self.soldiersFromWarFieldBList[coin]
 
         soldierFromBaseA = soldierFromWarFieldA
         soldierFromBaseB = soldierFromWarFieldB
@@ -121,6 +128,13 @@ class Terminal(object):
         self.annihilation = False
         self.autoPeaceCount = 0
         self.annihilationCount = 0
+        self.warCount = 0
+        self.warLocation = []
+
+    def isWar(self, location):
+        self.warCount += 1
+        self.warLocation.append(location)
+        print("War number {}, at {}".format(self.warCount, location))
 
     def isAutoPeace(self):
         self.terminal = True
@@ -136,6 +150,13 @@ class Terminal(object):
 
     def isTerminal(self):
         self.terminal = True
+
+    def terminalCheck(self):
+        if self.terminal:
+            self.reset()
+            return True
+        else:
+            return False
 
 
 class CheckTerminal:
@@ -155,10 +176,6 @@ class CheckTerminal:
         isAnnihilation = self.checkAnnihilation(warField)
         isTerminal = True if turn+1 >= self.compulsoryEndTurn or isAutoPeace or isAnnihilation else False
 
-        if isAutoPeace:
-            print("AutoPeace")
-        if isAnnihilation:
-            print("isAnnihilation")
         return isTerminal, isAutoPeace, isAnnihilation
 
 

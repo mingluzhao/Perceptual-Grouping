@@ -21,7 +21,7 @@ layerWidth = [32, 32]
 saveAllmodels = True
 
 def main():
-    debug = 0
+    debug = 1
     if debug:
         mapSize = 8
         colorA = 4
@@ -55,12 +55,12 @@ def main():
     peaceEndTurn = 3
     numAgents = 2
 
+    terminal = Terminal()
     checkAutoPeace = CheckAutoPeace(peaceEndTurn)
     unpackState = UnpackState(mapSize)
-    transit = Transit(unpackState)
+    transit = Transit(unpackState, terminal)
     transitAutopeaceAnnihilation = TransitAutopeaceAnnihilation(compulsoryEndTurn, unpackState, transit, mapSize)
 
-    terminal = Terminal()
     checkTerminal = CheckTerminal(compulsoryEndTurn, unpackState, checkAutoPeace, checkAnnihilation)
     rewardFunction = RewardFunction(unpackState, checkTerminal, transitAutopeaceAnnihilation, terminal)
 
@@ -96,8 +96,8 @@ def main():
     getAgentModel = lambda agentId: lambda: trainMADDPGModels.getTrainedModels()[agentId]
     getModelList = [getAgentModel(i) for i in range(numAgents)]
     modelSaveRate = 1000
-    fileName = "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv_agent".format(mapSize, colorA, colorB,
-               maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval)
+    fileName = "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv{}layer_agent".format(mapSize, colorA, colorB,
+               maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval, layerWidth[0])
 
     modelDir = os.path.join(dirName, '..', 'trainedModels')
     if not os.path.exists(modelDir):

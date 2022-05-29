@@ -10,15 +10,37 @@ logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
 from src.maddpg.trainer.MADDPG import BuildMADDPGModels, ActOneStepOneHot, actByPolicyTrainNoisy
 from src.loadSaveModel import saveVariables, restoreVariables, saveToPickle
-from src.trajectory import SampleTrajectory
+from src.trajectory import SampleTrajectoryComparePolicies
 from src.environment import *
 from src.functionWarGamePure import CheckAutoPeace
-from src.evalFunctions import calcAgentsActionsMean, calcAgentsReward
 
 layerWidth = [32, 32]
-numTrajToSample = 10
+learningRateActor = 0.01
+learningRateCritic = 0.01
+gamma = 0.95
+tau = 0.01
+bufferSize = 1e4
+minibatchSize = 128
+
+
+def calcAgentsReward(traj):
+    rewardIDinTraj = 2
+    agentsTrajReward = np.sum([timeStepInfo[rewardIDinTraj] for timeStepInfo in traj], axis=0)
+    return agentsTrajReward
 
 def main():
+    # mapSizeLevels = [8]
+    # colorLevels = [(4, 4), (5, 3), (3, 5)]
+    # maxEpisodeLevels = [30000]
+    # maxTimeStepLevels = [25]
+    # bufferSizeLevels = [10000, 100000]
+    # minibatchSizeLevels = [64, 128, 256]
+    # learningRateActorLevels = [0.01]
+    # learningRateCriticLevels = [0.01]
+    # gammaLevels = [0.95]
+    # tauLevels = [0.01]
+    # learnIntervalLevels = [20, 50, 100]
+
     mapSizeLevels = [8]
     colorLevels = [(4, 4)]
     maxEpisodeLevels = [30000]
@@ -47,29 +69,33 @@ def main():
 
     for condition in conditionLevels:
         mapSize, colorA, colorB, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval = condition
-        trainEps = maxEpisode
+
+        compareWithRandom = False
+        modelIDToTest = 0
+        trainEps = maxEpisode #TODO: the model eps to test
 
         compulsoryEndTurn = maxTimeStep
         peaceEndTurn = 3
         numAgents = 2
 
-        terminal = Terminal()
         checkAutoPeace = CheckAutoPeace(peaceEndTurn)
         unpackState = UnpackState(mapSize)
-        transit = Transit(unpackState, terminal)
+        transit = Transit(unpackState)
         transitAutopeaceAnnihilation = TransitAutopeaceAnnihilation(compulsoryEndTurn, unpackState, transit, mapSize)
 
+        terminal = Terminal()
         checkTerminal = CheckTerminal(compulsoryEndTurn, unpackState, checkAutoPeace, checkAnnihilation)
         rewardFunction = RewardFunction(unpackState, checkTerminal, transitAutopeaceAnnihilation, terminal)
 
-        reset = Reset(mapSize, terminal, colorA, colorB)
+        reset = Reset(mapSize, terminal, colorA, colorB)#, soldierFromWarFieldA, soldierFromWarFieldB)
         observe = lambda state: [Observe(unpackState, mapSize, agentID)(state) for agentID in range(numAgents)]
         actionDim = mapSize - 1
         obsShape = [len(observe(reset())[obsID]) for obsID in range(numAgents)]
 
-        isTerminal = lambda state: terminal.terminal #TODO
-        sampleTrajectory = SampleTrajectory(maxTimeStep, transit, isTerminal, rewardFunction, reset)
+        isTerminal = lambda state: terminal.terminalCheck()
+        sampleTrajectory = SampleTrajectoryComparePolicies(maxTimeStep, transit, isTerminal, rewardFunction, reset)
 
+# policy
         buildMADDPGModels = BuildMADDPGModels(actionDim, numAgents, obsShape)
         modelsList = [buildMADDPGModels(layerWidth, agentID) for agentID in range(numAgents)]
         dirName = os.path.dirname(__file__)
@@ -79,50 +105,28 @@ def main():
         modelPaths = [os.path.join(dirName, '..', 'trainedModels', fileName + str(i)+ str(trainEps) + 'eps') for i in range(numAgents)]
         [restoreVariables(model, path) for model, path in zip(modelsList, modelPaths)]
         actOneStepOneModel = ActOneStepOneHot(actByPolicyTrainNoisy)
-        policy = lambda allAgentsStates: [actOneStepOneModel(model, observe(allAgentsStates)) for model in modelsList]
+        policyModels = lambda allAgentsStates: [actOneStepOneModel(model, observe(allAgentsStates)) for model in modelsList]
 
-        rewardList, trajList = [], []
-        annihilationList, autopeaceList, warList = [], [], []
-        agent1Actions, agent2Actions = [], []
+        modelPolicy = lambda allAgentsStates: actOneStepOneModel(modelsList[modelIDToTest], allAgentsStates)
+        randomPolicy = RandomPolicy(mapSize)
+        policyMix = lambda allAgentsStates: [modelPolicy(observe(allAgentsStates)), randomPolicy(observe(allAgentsStates))]
 
+        rewardListModel, rewardListMix, trajListModel, trajListMix = [],[], [],[]
+        numTrajToSample = 100
         for i in range(numTrajToSample):
-            traj = sampleTrajectory(policy)
-            annihilationList.append(terminal.annihilationCount)
-            autopeaceList.append(terminal.autoPeaceCount)
-            warList.append(terminal.warCount)
+            trajModel, trajMix = sampleTrajectory(policyModels, policyMix)
+            rewardListModel.append(calcAgentsReward(trajModel))
+            rewardListMix.append(calcAgentsReward(trajMix))
+            trajListModel.append(list(trajModel))
+            trajListMix.append(list(trajMix))
 
-            rew = calcAgentsReward(traj)
-            agent1ActionMean, agent2ActionMean = calcAgentsActionsMean(traj)
+        meanRewardModel = np.mean(rewardListModel, axis=0)
+        meanRewardMix = np.mean(rewardListMix, axis=0)
+        print('meanRewardModel', meanRewardModel, 'meanRewardMix ', meanRewardMix)
 
-            rewardList.append(rew)
-            agent1Actions.append(agent1ActionMean)
-            agent2Actions.append(agent2ActionMean)
-            trajList.append(list(traj))
-
-        meanRewardAgent1, meanRewardAgent2 = np.mean(rewardList, axis=0)
-        totalrewardList = np.sum(rewardList, axis=1)
-        meanRewardTotal = np.mean(totalrewardList)
-        seRewardAgent1, seRewardAgent2 = np.std(rewardList, axis=0) / np.sqrt(len(rewardList) - 1)
-        seRewardTotal = np.std(totalrewardList) / np.sqrt(len(totalrewardList) - 1)
-
-        annihilationPercent = np.mean(annihilationList)
-        autopeacePercent = np.mean(autopeaceList)
-        meanWar = np.mean(warList)
-        seWar = np.std(warList) / np.sqrt(len(warList) - 1)
-
-        meanActionAgent1 = np.mean(agent1Actions)
-        seActionAgent1 = np.std(agent1Actions) / np.sqrt(len(agent1Actions) - 1)
-        meanActionAgent2 = np.mean(agent2Actions)
-        seActionAgent2 = np.std(agent2Actions) / np.sqrt(len(agent2Actions) - 1)
-
-        print(dict({'meanRewardAgent1': meanRewardAgent1, 'seRewardAgent1': seRewardAgent1,
-                    'meanRewardAgent2': meanRewardAgent2, 'seRewardAgent2': seRewardAgent2,
-                    'meanRewardTotal': meanRewardTotal, 'seRewardTotal': seRewardTotal,
-                    'annihilationPercent': annihilationPercent, 'autopeacePercent': autopeacePercent,
-                    'meanWar': meanWar, 'seWar': seWar,
-                    'meanActionAgent1': meanActionAgent1, 'seActionAgent1': seActionAgent1,
-                    'meanActionAgent2': meanActionAgent2, 'seActionAgent2': seActionAgent2
-                    }))
+        # meanTrajReward = np.mean(rewardList)
+        # seTrajReward = np.std(rewardList) / np.sqrt(len(rewardList) - 1)
+        # print('meanTrajReward', meanTrajReward, 'se ', seTrajReward)
 
 
 
