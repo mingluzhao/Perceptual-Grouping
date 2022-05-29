@@ -13,19 +13,19 @@ from src.maddpg.trainer.MADDPG import BuildMADDPGModels, TrainCritic, TrainActor
 from src.maddpg.rlTools.RLrun import UpdateParameters, SampleOneStep, SampleFromMemory,\
     RunTimeStep, RunEpisode, RunAlgorithm, getBuffer, SaveModel, StartLearn
 from src.loadSaveModel import saveVariables
-from src.environment import *
-from src.functionWarGamePure import CheckAutoPeace
+from src.environment import checkAnnihilation, UnpackState, Observe, Transit, Reset, Terminal, CheckTerminal, \
+    RewardFunction, TransitAutopeaceAnnihilation
 import json
 
 layerWidth = [32, 32]
 saveAllmodels = True
 
 def main():
-    debug = 1
+    debug = 0
     if debug:
-        mapSize = 8
-        colorA = 4
-        colorB = mapSize - colorA
+        mapSize = 9
+        colorA = -1
+        colorB = -1
         maxEpisode = 10000
         maxTimeStep = 25
         bufferSize = 1e4
@@ -55,19 +55,25 @@ def main():
     peaceEndTurn = 3
     numAgents = 2
 
+    if mapSize % 2 == 0:
+        from src.functionWarGamePure import CheckAutoPeace, calculateRemainingSoldiers
+    else:
+        from src.functionWarGameSevenGrid import CheckAutoPeace, calculateRemainingSoldiers
+
     terminal = Terminal()
     checkAutoPeace = CheckAutoPeace(peaceEndTurn)
     unpackState = UnpackState(mapSize)
-    transit = Transit(unpackState, terminal)
+    transit = Transit(unpackState, terminal, calculateRemainingSoldiers)
     transitAutopeaceAnnihilation = TransitAutopeaceAnnihilation(compulsoryEndTurn, unpackState, transit, mapSize)
 
     checkTerminal = CheckTerminal(compulsoryEndTurn, unpackState, checkAutoPeace, checkAnnihilation)
     rewardFunction = RewardFunction(unpackState, checkTerminal, transitAutopeaceAnnihilation, terminal)
 
-    reset = Reset(mapSize, terminal, colorA, colorB)
+    reset = Reset(mapSize, terminal) if colorA == -1 else Reset(mapSize, terminal, colorA, colorB)
     observe = lambda state: [Observe(unpackState, mapSize, agentID)(state) for agentID in range(numAgents)]
     actionDim = mapSize - 1
     obsShape = [len(observe(reset())[obsID]) for obsID in range(numAgents)]
+
 
     buildMADDPGModels = BuildMADDPGModels(actionDim, numAgents, obsShape)
     modelsList = [buildMADDPGModels(layerWidth, agentID) for agentID in range(numAgents)]
@@ -95,10 +101,12 @@ def main():
 
     getAgentModel = lambda agentId: lambda: trainMADDPGModels.getTrainedModels()[agentId]
     getModelList = [getAgentModel(i) for i in range(numAgents)]
-    modelSaveRate = 1000
-    fileName = "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv{}layer_agent".format(mapSize, colorA, colorB,
-               maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval, layerWidth[0])
+    modelSaveRate = 5000
 
+    fileName = "war{}gridsRandomColor{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv{}layer_agent".format(mapSize, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval, layerWidth[0]) \
+        if colorA == -1 else \
+               "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv{}layer_agent".format(mapSize, colorA, colorB, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval, layerWidth[0])
+    print(fileName)
     modelDir = os.path.join(dirName, '..', 'trainedModels')
     if not os.path.exists(modelDir):
         os.makedirs(modelDir)

@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import pygame
+# import pygame
 import random
 import math
 from pygame.locals import *
@@ -530,6 +530,7 @@ def checkPolicy(policyA, policyB, soldiersA, soldiersB):
 
 
 def transformPolicyToSoldierMove(policy):
+    policy = list(policy)
     soldierMove = [0 for i in range(len(policy))]
     if policy.count(1) >0:
         index = policy.index(1)
@@ -627,6 +628,8 @@ def simulateWarProcess(soldiersA, soldiersB):
 
 
 def calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB):
+    policyA = list(policyA)
+    policyB = list(policyB)
     winBonus = 0
     warLocation = 0
     warLost = 0
@@ -643,7 +646,6 @@ def calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSo
         warLocation = policyA.count(1)
         tempSoldiersA, tempSoldiersB, winner = simulateWarProcess(remainingSoldiersNewA[policyA.index(1)], remainingSoldiersNewB[policyB.index(1)])
 
-        # print(winner, lostRate)
         if winner == 1:
             remainingSoldiersNewA[policyA.index(1)] = tempSoldiersA
             remainingSoldiersNewB[policyB.index(1)+1] += tempSoldiersB
@@ -679,6 +681,7 @@ def calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSo
         remainingSoldiersNew2A[i+1] = math.ceil((max(0, remainingSoldiersNewA[i+1] - remainingSoldiersNewB[i+1])))
         remainingSoldiersNew2B[i+1] = math.ceil((max(0, remainingSoldiersNewB[i+1] - remainingSoldiersNewA[i+1])))
 
+    warField = list(warField)
     warFieldNew = judgeResult(remainingSoldiersNew2A, remainingSoldiersNew2B, warField)
     boundaryOld = warField.count(1)
     boundaryNew = warFieldNew.count(1)
@@ -739,12 +742,14 @@ def isPeace(pos, length, width, cubeWidth):
 
 
 class CheckAutoPeace:
+    print("Checking for 7 grids situation")
 
     def __init__(self, peaceEndTurn):
         self.count = 0
         self.peaceEndTurn = peaceEndTurn
 
     def __call__(self, policyA, policyB, warField):
+        warField = list(warField)
         boundary = warField.count(1)
         if sum(policyA[boundary-1:]) == 0 and sum(policyB[:boundary+1]) == 0 and warField.count(0)==0:
             self.count += 1

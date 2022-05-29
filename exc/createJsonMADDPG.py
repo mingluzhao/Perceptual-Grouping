@@ -30,8 +30,8 @@ def main():
     #     'learnIntervalLevels': [20, 50, 100]}
 
     conditions['vi385064core2-PowerEdge-R7515'] = { # then ran one with 64 layer size
-        'mapSizeLevels': [8],
-        'colorLevels': [(4, 4), (5, 3), (3, 5)],
+        'mapSizeLevels': [7, 8],
+        'colorLevels': [(-1, -1)],
         'maxEpisodeLevels': [30000],
         'maxTimeStepLevels': [25],
         'bufferSizeLevels': [1e4, 1e5, 1e6],

@@ -711,6 +711,7 @@ def isPeace(pos, length, width, cubeWidth):
 
 
 class CheckAutoPeace:
+    print("Checking for 8 grids situation")
 
     def __init__(self, peaceEndTurn):
         self.count = 0

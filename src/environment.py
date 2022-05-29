@@ -1,4 +1,3 @@
-from src.functionWarGamePure import calculateRemainingSoldiers
 import numpy as np
 import random
 
@@ -43,9 +42,10 @@ class Observe:
 
 
 class Transit:
-    def __init__(self, unpackState, terminal):
+    def __init__(self, unpackState, terminal, calculateRemainingSoldiers):
         self.unpackState = unpackState
         self.terminal = terminal
+        self.calculateRemainingSoldiers = calculateRemainingSoldiers
 
     def __call__(self, state, policy):
         policyA, policyB = policy
@@ -53,7 +53,7 @@ class Transit:
         policyB = [0] + list(policyB)
 
         remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = self.unpackState(state)
-        remainingSoldiersA, remainingSoldiersB, warField, warLocation = calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB,
+        remainingSoldiersA, remainingSoldiersB, warField, warLocation = self.calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB,
                                                                                                    warField, soldierFromWarFieldA, soldierFromWarFieldB,
                                                                                                    soldierFromBaseA, soldierFromBaseB)
         if warLocation>0: # isWar # TODO: for evaluation
@@ -64,17 +64,9 @@ class Transit:
         nextStateArray = [np.array(nextState), np.array(nextState)]
         return nextStateArray
 
-# policyA = [1] + [0]*7
-# policyB = [0]*7 + [1]
-# remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, \
-# soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = unpackState(state0)
-# calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB)
-#
-
-
 
 class Reset:
-    def __init__(self, mapSize, terminal, colorA, colorB, soldierFromWarFieldA = -1, soldierFromWarFieldB= -1):
+    def __init__(self, mapSize, terminal, colorA = -1, colorB= -1, soldierFromWarFieldA = -1, soldierFromWarFieldB= -1):
         self.mapSize = mapSize
         self.terminal = terminal
         self.colorA = colorA
@@ -107,10 +99,27 @@ class Reset:
         warField[0] = 1
         warField[-1] = 2
 
+        if self.colorA == -1:
+            # randomly assign color pairs
+            if self.mapSize % 2 == 0:
+                colorChoices = [(int(self.mapSize/2), int(self.mapSize/2)),
+                                (self.mapSize, 0),
+                                (0, self.mapSize)]
+                colorA, colorB = colorChoices[random.randint(0, len(colorChoices)-1)]
+            else:
+                colorChoices = [(int(self.mapSize/2+1), int(self.mapSize/2)),
+                                (int(self.mapSize/2), int(self.mapSize/2+1)),
+                                (self.mapSize, 0),
+                                (0, self.mapSize)]
+                colorA, colorB = colorChoices[random.randint(0, len(colorChoices)-1)]
+        else:
+            colorA = self.colorA
+            colorB = self.colorB
+
         turn = 0
         state = list(remainingSoldiersA) + list(remainingSoldiersB) + list(warField) + \
                 [soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn,
-                 self.colorA, self.colorB]
+                 colorA, colorB]
 
         self.terminal.reset()
         return [np.array(state), np.array(state)]
@@ -134,7 +143,7 @@ class Terminal(object):
     def isWar(self, location):
         self.warCount += 1
         self.warLocation.append(location)
-        print("War number {}, at {}".format(self.warCount, location))
+        # print("War number {}, at {}".format(self.warCount, location))
 
     def isAutoPeace(self):
         self.terminal = True
@@ -191,10 +200,10 @@ class RewardFunction:
 
         if autoPeace:
             self.terminal.isAutoPeace()
-            print("peace")
+            print("peace-------------------------------------------")
         if annihilation:
             self.terminal.isAnnihilation()
-            print("annihilation")
+            print("annihilation------------------------------------")
 
         if terminal:
             self.terminal.isTerminal()
@@ -210,7 +219,6 @@ class RewardFunction:
         # print("state {}, {}, {}, policy {} vs {}, reward {}".format(remainingSoldiersA, remainingSoldiersB,
         #                                                             warField, policy[0].argmax(), policy[1].argmax(), reward))
         return reward
-
 
 
 class RandomPolicy:
@@ -244,14 +252,3 @@ class TransitAutopeaceAnnihilation:
             state = self.transit(state, policy)
 
         return state
-
-#
-# transitAutopeaceAnnihilation()
-#
-# state0 = [np.array([43, 32, 27, 22, 17,  8,  7,  0,  0,  0,  0,  0,  0,  0,  0,  5,  1,
-#         1,  1,  1,  1,  1,  1,  2,  7,  5,  7,  5, 19,  4,  4]), np.array([43, 32, 27, 22, 17,  8,  7,  0,  0,  0,  0,  0,  0,  0,  0,  5,  1,
-#         1,  1,  1,  1,  1,  1,  2,  7,  5,  7,  5, 19,  4,  4])]
-#
-# state1 = [np.array([7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 1, 0, 0, 0, 0, 0,
-#        0, 2, 7, 9, 7, 9, 0, 4, 4]), np.array([7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 1, 0, 0, 0, 0, 0,
-#        0, 2, 7, 9, 7, 9, 0, 4, 4])]
