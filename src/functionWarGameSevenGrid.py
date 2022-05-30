@@ -642,7 +642,10 @@ def calculateRemainingSoldiers(policyA, policyB, remainingSoldiersA, remainingSo
         remainingSoldiersNewA[i+soldierMoveA[i]] += remainingSoldiersA[i]
         remainingSoldiersNewB[i+soldierMoveB[i]] += remainingSoldiersB[i]
 
-    if policyA.count(1) >0 and policyB.count(1) >0 and policyA.index(1) > policyB.index(1):
+    # a special case
+    # if policyA.count(1) >0 and policyB.count(1) >0 and policyA.index(1) > policyB.index(1):
+    if policyA.count(1) > 0 and policyB.count(1) > 0 and policyA.index(1) > policyB.index(1) \
+            and remainingSoldiersNewA[policyA.index(1)] > 0 and remainingSoldiersNewB[policyB.index(1)] > 0:
         warLocation = policyA.count(1)
         tempSoldiersA, tempSoldiersB, winner = simulateWarProcess(remainingSoldiersNewA[policyA.index(1)], remainingSoldiersNewB[policyB.index(1)])
 
