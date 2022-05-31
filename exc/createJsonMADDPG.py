@@ -29,7 +29,7 @@ def main():
     #     'tauLevels': [0.01],
     #     'learnIntervalLevels': [20, 50, 100]}
 
-    conditions['vi3850-PowerEdge-R7515-1'] = { # then ran one with 64 layer size
+    conditions['vi3850-PowerEdge-R7515-2'] = { # then ran one with 64 layer size
         'mapSizeLevels': [8],
         'colorLevels': [(4, 4), (0, 8)],
         'maxEpisodeLevels': [20000],

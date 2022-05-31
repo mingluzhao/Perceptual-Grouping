@@ -14,14 +14,14 @@ from src.maddpg.rlTools.RLrun import UpdateParameters, SampleOneStep, SampleFrom
     RunTimeStep, RunEpisode, RunAlgorithm, getBuffer, SaveModel, StartLearn
 from src.loadSaveModel import saveVariables
 from src.environment import checkAnnihilation, UnpackState, Observe, Transit, Reset, Terminal, CheckTerminal, \
-    RewardFunction, TransitAutopeaceAnnihilation
+    RewardFunction, TransitAutopeaceAnnihilation, GetChangeInSoldiers
 import json
 
 layerWidth = [32, 32]
 saveAllmodels = True
 
 def main():
-    debug = 0
+    debug = 1
     if debug:
         mapSize = 9
         colorA = -1
@@ -67,7 +67,8 @@ def main():
     transitAutopeaceAnnihilation = TransitAutopeaceAnnihilation(compulsoryEndTurn, unpackState, transit, mapSize)
 
     checkTerminal = CheckTerminal(compulsoryEndTurn, unpackState, checkAutoPeace, checkAnnihilation)
-    rewardFunction = RewardFunction(unpackState, checkTerminal, transitAutopeaceAnnihilation, terminal)
+    getChangeInSoldiers = GetChangeInSoldiers(unpackState)
+    rewardFunction = RewardFunction(checkTerminal, transitAutopeaceAnnihilation, terminal, getChangeInSoldiers)
 
     reset = Reset(mapSize, terminal) if colorA == -1 else Reset(mapSize, terminal, colorA, colorB)
     observe = lambda state: [Observe(unpackState, mapSize, agentID)(state) for agentID in range(numAgents)]

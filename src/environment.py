@@ -175,28 +175,31 @@ class CheckTerminal:
         self.checkAutoPeace = checkAutoPeace
         self.checkAnnihilation = checkAnnihilation
 
-    def __call__(self, policy, state):
+    def __call__(self, policy, state, nextState):
         policyA, policyB = policy
         policyA = list(policyA) + [0]
         policyB = [0] + list(policyB)
 
         remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = self.unpackState(state)
-        isAutoPeace = self.checkAutoPeace(policyA, policyB, warField)
-        isAnnihilation = self.checkAnnihilation(warField)
+        nextRemainingSoldiersA, nextRemainingSoldiersB, nextWarField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, nextTurn, colorA, colorB = self.unpackState(
+            nextState)
+
+        isAutoPeace = self.checkAutoPeace(policyA, policyB, warField) #this depends on current state
+        isAnnihilation = self.checkAnnihilation(nextWarField) #this depends on nextState
         isTerminal = True if turn+1 >= self.compulsoryEndTurn or isAutoPeace or isAnnihilation else False
 
         return isTerminal, isAutoPeace, isAnnihilation
 
 
 class RewardFunction:
-    def __init__(self, unpackState, checkTerminal, transitAutopeaceAnnihilation, terminal):
-        self.unpackState = unpackState
+    def __init__(self, checkTerminal, transitAutopeaceAnnihilation, terminal, getChangeInSoldiers):
         self.checkTerminal = checkTerminal
         self.terminal = terminal
         self.transitAutopeaceAnnihilation = transitAutopeaceAnnihilation
+        self.getChangeInSoldiers = getChangeInSoldiers
 
     def __call__(self, state, policy, nextState):
-        terminal, autoPeace, annihilation = self.checkTerminal(policy, state) # TODO: check current state or next state?
+        terminal, autoPeace, annihilation = self.checkTerminal(policy, state, nextState)
 
         if autoPeace:
             self.terminal.isAutoPeace()
@@ -204,21 +207,31 @@ class RewardFunction:
         if annihilation:
             self.terminal.isAnnihilation()
             print("annihilation------------------------------------")
-
         if terminal:
             self.terminal.isTerminal()
 
         if self.terminal.terminal: # move forward to get rewards automatically
-            state = self.transitAutopeaceAnnihilation(state)
-            remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, soldierFromBaseB, turn, colorA, colorB = self.unpackState(state)
-            rewardA = sum(remainingSoldiersA)
-            rewardB = sum(remainingSoldiersB)
-            reward = [rewardA, rewardB]
-            # TODO: include only reward after terminal is checked (from terminal turn to the final turn )
+            finalState = self.transitAutopeaceAnnihilation(state)
+            reward = self.getChangeInSoldiers(state, finalState)
         else:
-            reward = [0, 0] # TODO: change to intermediate reward at each step
+            reward = self.getChangeInSoldiers(state, nextState)
         # print("state {}, {}, {}, policy {} vs {}, reward {}".format(remainingSoldiersA, remainingSoldiersB,
         #                                                             warField, policy[0].argmax(), policy[1].argmax(), reward))
+        return reward
+
+
+class GetChangeInSoldiers:
+    def __init__(self, unpackState):
+        self.unpackState = unpackState
+
+    def __call__(self, state, nextState):
+        remainingSoldiersA, remainingSoldiersB, warField, soldierFromWarFieldA, soldierFromWarFieldB, soldierFromBaseA, \
+        soldierFromBaseB, turn, colorA, colorB = self.unpackState(state)
+        nextRemainingSoldiersA, nextRemainingSoldiersB, nextWarField, soldierFromWarFieldA, soldierFromWarFieldB, \
+        soldierFromBaseA, soldierFromBaseB, nextTurn, colorA, colorB = self.unpackState(nextState)
+        reward = [sum(nextRemainingSoldiersA) - sum(remainingSoldiersA), sum(nextRemainingSoldiersB) - sum(
+            remainingSoldiersB)]
+        # print("next ", sum(nextRemainingSoldiersA), " current ", sum(remainingSoldiersA))
         return reward
 
 

@@ -12,11 +12,10 @@ from src.maddpg.trainer.MADDPG import BuildMADDPGModels, ActOneStepOneHot, actBy
 from src.loadSaveModel import saveVariables, restoreVariables, saveToPickle
 from src.trajectory import SampleTrajectory
 from src.environment import *
-from src.functionWarGamePure import CheckAutoPeace
 from src.evalFunctions import calcAgentsActionsMean, calcAgentsReward
 
 layerWidth = [32, 32]
-numTrajToSample = 10
+numTrajToSample = 3
 
 def main():
     mapSizeLevels = [8]
@@ -53,14 +52,20 @@ def main():
         peaceEndTurn = 3
         numAgents = 2
 
+        if mapSize % 2 == 0:
+            from src.functionWarGamePure import CheckAutoPeace, calculateRemainingSoldiers
+        else:
+            from src.functionWarGameSevenGrid import CheckAutoPeace, calculateRemainingSoldiers
+
         terminal = Terminal()
         checkAutoPeace = CheckAutoPeace(peaceEndTurn)
         unpackState = UnpackState(mapSize)
-        transit = Transit(unpackState, terminal)
+        transit = Transit(unpackState, terminal, calculateRemainingSoldiers)
         transitAutopeaceAnnihilation = TransitAutopeaceAnnihilation(compulsoryEndTurn, unpackState, transit, mapSize)
 
         checkTerminal = CheckTerminal(compulsoryEndTurn, unpackState, checkAutoPeace, checkAnnihilation)
-        rewardFunction = RewardFunction(unpackState, checkTerminal, transitAutopeaceAnnihilation, terminal)
+        getChangeInSoldiers = GetChangeInSoldiers(unpackState)
+        rewardFunction = RewardFunction(checkTerminal, transitAutopeaceAnnihilation, terminal, getChangeInSoldiers)
 
         reset = Reset(mapSize, terminal, colorA, colorB)
         observe = lambda state: [Observe(unpackState, mapSize, agentID)(state) for agentID in range(numAgents)]
