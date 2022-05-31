@@ -43,10 +43,16 @@ def evaluatePolicyPairs(df):
     peaceEndTurn = 3
     numAgents = 2
 
+    if mapSize % 2 == 0:
+        from src.functionWarGamePure import CheckAutoPeace, calculateRemainingSoldiers
+    else:
+        from src.functionWarGameSevenGrid import CheckAutoPeace, calculateRemainingSoldiers
+
+
     terminal = Terminal()
     checkAutoPeace = CheckAutoPeace(peaceEndTurn)
     unpackState = UnpackState(mapSize)
-    transit = Transit(unpackState, terminal)
+    transit = Transit(unpackState, terminal, calculateRemainingSoldiers)
     transitAutopeaceAnnihilation = TransitAutopeaceAnnihilation(compulsoryEndTurn, unpackState, transit, mapSize)
 
     checkTerminal = CheckTerminal(compulsoryEndTurn, unpackState, checkAutoPeace, checkAnnihilation)

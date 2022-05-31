@@ -196,7 +196,7 @@ class RewardFunction:
         self.transitAutopeaceAnnihilation = transitAutopeaceAnnihilation
 
     def __call__(self, state, policy, nextState):
-        terminal, autoPeace, annihilation = self.checkTerminal(policy, state)
+        terminal, autoPeace, annihilation = self.checkTerminal(policy, state) # TODO: check current state or next state?
 
         if autoPeace:
             self.terminal.isAutoPeace()
@@ -214,8 +214,9 @@ class RewardFunction:
             rewardA = sum(remainingSoldiersA)
             rewardB = sum(remainingSoldiersB)
             reward = [rewardA, rewardB]
+            # TODO: include only reward after terminal is checked (from terminal turn to the final turn )
         else:
-            reward = [0, 0]
+            reward = [0, 0] # TODO: change to intermediate reward at each step
         # print("state {}, {}, {}, policy {} vs {}, reward {}".format(remainingSoldiersA, remainingSoldiersB,
         #                                                             warField, policy[0].argmax(), policy[1].argmax(), reward))
         return reward
