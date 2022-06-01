@@ -11,12 +11,15 @@ logging.getLogger('tensorflow').setLevel(logging.ERROR)
 from src.maddpg.trainer.MADDPG import BuildMADDPGModels, ActOneStepOneHot, actByPolicyTrainNoisy
 from src.loadSaveModel import saveVariables, restoreVariables, saveToPickle
 from src.trajectory import SampleTrajectory
-from src.environment import *
+from src.environment import checkAnnihilation, UnpackState, Observe, Transit, Reset, Terminal, CheckTerminal, \
+    RewardFunction, TransitAutopeaceAnnihilation, GetChangeInSoldiers, RandomPolicy
 from src.evalFunctions import calcAgentsActionsMean, calcAgentsReward
 import pandas as pd
+import numpy as np
 
-numTrajToSample = 10
-maxEpisode = 30000
+
+numTrajToSample = 5
+maxEpisode = 20000
 maxTimeStep = 25
 saveInterval = 5000
 
@@ -70,10 +73,9 @@ def evaluatePolicyPairs(df):
     if isinstance(modelType1, int) or isinstance(modelType2, int):
         buildMADDPGModels = BuildMADDPGModels(actionDim, numAgents, obsShape)
         modelsList = [buildMADDPGModels(layerWidth, agentID) for agentID in range(numAgents)]
-        fileName = "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv_agent".format(
-            mapSize, colorA, colorB,
-            maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau,
-            learnInterval)
+        fileName = "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv{}layer_agent".format(
+            mapSize, colorA, colorB, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor,
+            learningRateCritic, gamma, tau, learnInterval, layerWidthSingle)
 
         modelPaths = [os.path.join(dirName, '..', 'trainedModels', fileName + str(i) + str(trainEps) + 'eps') for i in
                       range(numAgents)]
@@ -140,37 +142,69 @@ def evaluatePolicyPairs(df):
                       })
 
 def main():
-    independentVariables = dict()
-    # environment parameters
-    independentVariables['mapSize'] = [8]
-    independentVariables['color'] = [(4, 4), (5, 3), (3, 5)]
-    independentVariables['soldiers'] = [(5, 5), (10, 10), (5, 10), (10, 5)]
-    # training parameters
-    independentVariables['trainEps'] = np.arange(saveInterval, maxEpisode, saveInterval)
-    independentVariables['evalSequence'] = [(0, 1), (0, 'random'), (1, 'random'), ('random', 0), ('random', 1), ('random', 'random')]
-    independentVariables['bufferSize'] = [10000]
-    independentVariables['minibatchSize'] = [64]
-    independentVariables['learnInterval'] = [100]
-    independentVariables['layerWidth'] = [32]
-    independentVariables['learningRateActor'] = [0.01]
-    independentVariables['learningRateCritic'] = [0.01]
-    independentVariables['gamma'] = [0.95]
-    independentVariables['tau'] = [0.01]
+    map = 8
 
-    levelNames = list(independentVariables.keys())
-    levelValues = list(independentVariables.values())
-    levelIndex = pd.MultiIndex.from_product(levelValues, names=levelNames)
-    toSplitFrame = pd.DataFrame(index=levelIndex)
-    resultDF = toSplitFrame.groupby(levelNames).apply(evaluatePolicyPairs)
+    if map==8:
+        independentVariables = dict()
+        # environment parameters
+        independentVariables['mapSize'] = [8]
+        independentVariables['color'] = [(4, 4), (0, 8)]
+        independentVariables['soldiers'] = [(10, 10), (9, 9), (8, 8), (7, 7), (6, 6), (5, 5), (7, 9), (6, 8), (7, 10), (10, 8), (9, 6), (7, 5), (10, 5), (9, 4), (8, 4), (3, 7), (5, 10), (4, 9)]
+        # training parameters
+        independentVariables['trainEps'] = np.arange(saveInterval, maxEpisode, saveInterval)
+        independentVariables['evalSequence'] = [(0, 1), (0, 'random'), (1, 'random'), ('random', 0), ('random', 1), ('random', 'random')]
+        independentVariables['bufferSize'] = [10000, 100000, 1000000]
+        independentVariables['minibatchSize'] = [64, 128, 256]
+        independentVariables['learnInterval'] = [20, 50, 100]
+        independentVariables['layerWidth'] = [32]
+        independentVariables['learningRateActor'] = [0.01]
+        independentVariables['learningRateCritic'] = [0.01]
+        independentVariables['gamma'] = [0.95]
+        independentVariables['tau'] = [0.01]
 
-    resultPath = os.path.join(dirName, '..', 'evalResults')
-    if not os.path.exists(resultPath):
-        os.makedirs(resultPath)
+        levelNames = list(independentVariables.keys())
+        levelValues = list(independentVariables.values())
+        levelIndex = pd.MultiIndex.from_product(levelValues, names=levelNames)
+        toSplitFrame = pd.DataFrame(index=levelIndex)
+        resultDF = toSplitFrame.groupby(levelNames).apply(evaluatePolicyPairs)
 
-    saveToPickle(resultDF, os.path.join(resultPath, 'evalResult.pkl'))
-    resultDF.to_csv(os.path.join(resultPath, 'evalResult.csv'))
+        resultPath = os.path.join(dirName, '..', 'evalResults')
+        if not os.path.exists(resultPath):
+            os.makedirs(resultPath)
 
-    print("Saved to ",  os.path.join(resultPath, 'evalResult.pkl'))
+        saveToPickle(resultDF, os.path.join(resultPath, 'evalResult8.pkl'))
+        resultDF.to_csv(os.path.join(resultPath, 'evalResult8.csv'))
+        print("Saved to ",  os.path.join(resultPath, 'evalResult8.pkl'))
+    else:
+        independentVariables = dict()
+        independentVariables['mapSize'] = [9]
+        independentVariables['color'] = [(4, 5), (0, 9)]
+        independentVariables['soldiers'] = [(10, 10), (9, 9), (8, 8), (7, 7), (6, 6), (5, 5), (7, 9), (6, 8), (7, 10), (10, 8), (9, 6), (7, 5), (10, 5), (9, 4), (8, 4), (3, 7), (5, 10), (4, 9)]
+        # training parameters
+        independentVariables['trainEps'] = np.arange(saveInterval, maxEpisode, saveInterval)
+        independentVariables['evalSequence'] = [(0, 1), (0, 'random'), (1, 'random'), ('random', 0), ('random', 1), ('random', 'random')]
+        independentVariables['bufferSize'] = [10000, 100000, 1000000]
+        independentVariables['minibatchSize'] = [64, 128, 256]
+        independentVariables['learnInterval'] = [20, 50, 100]
+        independentVariables['layerWidth'] = [32]
+        independentVariables['learningRateActor'] = [0.01]
+        independentVariables['learningRateCritic'] = [0.01]
+        independentVariables['gamma'] = [0.95]
+        independentVariables['tau'] = [0.01]
+
+        levelNames = list(independentVariables.keys())
+        levelValues = list(independentVariables.values())
+        levelIndex = pd.MultiIndex.from_product(levelValues, names=levelNames)
+        toSplitFrame = pd.DataFrame(index=levelIndex)
+        resultDF = toSplitFrame.groupby(levelNames).apply(evaluatePolicyPairs)
+
+        resultPath = os.path.join(dirName, '..', 'evalResults')
+        if not os.path.exists(resultPath):
+            os.makedirs(resultPath)
+
+        saveToPickle(resultDF, os.path.join(resultPath, 'evalResult9.pkl'))
+        resultDF.to_csv(os.path.join(resultPath, 'evalResult9.csv'))
+        print("Saved to ", os.path.join(resultPath, 'evalResult9.pkl'))
 
 
 if __name__ == '__main__':
