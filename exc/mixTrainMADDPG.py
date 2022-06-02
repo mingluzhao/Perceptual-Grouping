@@ -132,8 +132,8 @@ def main():
             replayBuffer = getBuffer(bufferSize)
             maddpg(replayBuffer)
 
-            allModelsList[model1ID] = getAgentModel(0)
-            allModelsList[model2ID] = getAgentModel(1)
+            allModelsList[model1ID] = getAgentModel(0)()
+            allModelsList[model2ID] = getAgentModel(1)()
 
 
 if __name__ == '__main__':
