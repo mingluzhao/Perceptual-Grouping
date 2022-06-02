@@ -78,9 +78,15 @@ class StartLearn:
     def __init__(self, learningStartBufferSize, learnInterval):
         self.learningStartBufferSize = learningStartBufferSize
         self.learnInterval = learnInterval
+        self.time = 0
 
     def __call__(self, runTime):
-        shouldStart = runTime >= self.learningStartBufferSize and runTime % self.learnInterval == 0
+        passedStartTime = (self.time >= self.learningStartBufferSize)
+        shouldStart = passedStartTime and runTime % self.learnInterval == 0
+        self.time += 1
+        if self.time == self.learningStartBufferSize:
+            print("reach learn time")
+
         return shouldStart
 
 
