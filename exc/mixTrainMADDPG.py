@@ -22,14 +22,20 @@ layerWidth = [32, 32]
 saveAllmodels = True
 totalModels = 20
 
+def shufflePairs(firstModelNumber, secondModelNumber):
+    firstModelOrder = list(range(firstModelNumber))
+    secondModelOrder = list(range(firstModelNumber, firstModelNumber + secondModelNumber))
+    np.random.shuffle(firstModelOrder)
+    np.random.shuffle(secondModelOrder)
+    return list(zip(firstModelOrder, secondModelOrder))
 
 def main():
-    debug = 0
+    debug = 1
     if debug:
         mapSize = 9
         colorA = -1
         colorB = -1
-        maxEpisode = 20000
+        maxEpisode = 200000
         maxTimeStep = 25
         bufferSize = 1e4
         minibatchSize = 128
@@ -99,9 +105,10 @@ def main():
     buildMADDPGModels = BuildMADDPGModels(actionDim, numAgents, obsShape)
     modelPairsNum = int(totalModels/2)
     allModelsList = [buildMADDPGModels(layerWidth, agentID) for agentID in range(numAgents) for _ in range(modelPairsNum)]
-    modelOrder = list(range(totalModels))
     getFileName =lambda modelID: "war{}gridsRandomColor{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv{}layer{}switch_model{}".format(mapSize, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval, layerWidth[0], switchInterval, modelID) \
         if colorA == -1 else "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv{}layer{}switch_model{}".format(mapSize, colorA, colorB, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval, layerWidth[0], switchInterval, modelID)
+    firstModelNumber = modelPairsNum
+    secondModelNumber = modelPairsNum
 
     modelDir = os.path.join(dirName, '..', 'trainedModels', 'mixTrain')
     if not os.path.exists(modelDir):
@@ -109,7 +116,7 @@ def main():
 
     for shuffleID in range(int(maxEpisode/switchInterval)):
         print("Shuffle {} out of {} interactions".format(shuffleID, int(maxEpisode/switchInterval)))
-        np.random.shuffle(modelOrder)
+        modelOrder = shufflePairs(firstModelNumber, secondModelNumber)
 
         for model1ID, model2ID in np.reshape(modelOrder, (-1, 2)):
             print("Training model {} and {}".format(model1ID, model2ID))

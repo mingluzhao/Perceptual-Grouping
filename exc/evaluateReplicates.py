@@ -82,7 +82,7 @@ def evaluatePolicyPairs(df):
                 mapSize, colorATrain, colorBTrain, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor,
                 learningRateCritic, gamma, tau, learnInterval, layerWidth[0], fileID)
 
-        modelPaths = [os.path.join(dirName, '..', 'trainedModels', fileName + str(i) + str(trainEps) + 'eps') for i in
+        modelPaths = [os.path.join(dirName, '..', 'trainedModels', 'groupTrain', fileName + str(i) + str(trainEps) + 'eps') for i in
                       range(numAgents)]
         [restoreVariables(model, path) for model, path in zip(modelsList, modelPaths)]
         actOneStepOneModel = ActOneStepOneHot(actByPolicyTrainNoisy)
