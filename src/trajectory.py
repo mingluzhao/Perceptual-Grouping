@@ -25,13 +25,13 @@
 
 
 class SampleTrajectory:
-    def __init__(self, maxRunningSteps, transit, isTerminal, rewardFunc, reset):
+    def __init__(self, maxRunningSteps, transit, isTerminal, rewardFunc, reset, mapSize = 8):
         self.maxRunningSteps = maxRunningSteps
         self.transit = transit
         self.isTerminal = isTerminal
         self.rewardFunc = rewardFunc
         self.reset = reset
-        self.mapSize = 8 #TODO
+        self.mapSize = mapSize
 
     def __call__(self, policy):
         state = self.reset()
@@ -54,7 +54,7 @@ class SampleTrajectory:
                 break
         return trajectory
 
-    def unpackState(self, state):
+    def unpackState(self, state): # TODO: For printing
         state = state[0]
         remainingSoldiersA = state[:self.mapSize]
         remainingSoldiersB = state[self.mapSize: self.mapSize*2]

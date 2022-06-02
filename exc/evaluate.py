@@ -73,7 +73,7 @@ def main():
         obsShape = [len(observe(reset())[obsID]) for obsID in range(numAgents)]
 
         isTerminal = lambda state: terminal.terminal #TODO
-        sampleTrajectory = SampleTrajectory(maxTimeStep, transit, isTerminal, rewardFunction, reset)
+        sampleTrajectory = SampleTrajectory(maxTimeStep, transit, isTerminal, rewardFunction, reset, mapSize)
 
         buildMADDPGModels = BuildMADDPGModels(actionDim, numAgents, obsShape)
         modelsList = [buildMADDPGModels(layerWidth, agentID) for agentID in range(numAgents)]

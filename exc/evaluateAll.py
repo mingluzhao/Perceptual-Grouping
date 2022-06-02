@@ -67,7 +67,7 @@ def evaluatePolicyPairs(df):
     obsShape = [len(observe(reset())[obsID]) for obsID in range(numAgents)]
 
     isTerminal = lambda state: terminal.terminal  # TODO
-    sampleTrajectory = SampleTrajectory(maxTimeStep, transit, isTerminal, rewardFunction, reset)
+    sampleTrajectory = SampleTrajectory(maxTimeStep, transit, isTerminal, rewardFunction, reset, mapSize)
 
     dirName = os.path.dirname(__file__)
     if isinstance(modelType1, int) or isinstance(modelType2, int):
@@ -142,7 +142,7 @@ def evaluatePolicyPairs(df):
                       })
 
 def main():
-    map = 8
+    map = 9
 
     if map==8:
         independentVariables = dict()
@@ -205,6 +205,7 @@ def main():
         saveToPickle(resultDF, os.path.join(resultPath, 'evalResult9.pkl'))
         resultDF.to_csv(os.path.join(resultPath, 'evalResult9.csv'))
         print("Saved to ", os.path.join(resultPath, 'evalResult9.pkl'))
+
 
 
 if __name__ == '__main__':

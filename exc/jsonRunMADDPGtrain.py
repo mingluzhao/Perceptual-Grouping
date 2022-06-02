@@ -57,6 +57,7 @@ def main():
     gammaLevels = condition['gammaLevels']
     tauLevels = condition['tauLevels']
     learnIntervalLevels = condition['learnIntervalLevels']
+    fileIDLevels = condition['fileIDLevels']
 
     startTime = time.time()
     fileName = 'trainMADDPG.py'
@@ -66,7 +67,7 @@ def main():
     print("start")
 
     conditionLevels = [(mapSize, colorA, colorB, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor,
-                        learningRateCritic, gamma, tau, learnInterval)
+                        learningRateCritic, gamma, tau, learnInterval, fileID)
                        for mapSize in mapSizeLevels
                        for colorA, colorB in colorLevels
                        for maxEpisode in maxEpisodeLevels
@@ -77,14 +78,15 @@ def main():
                        for learningRateCritic in learningRateCriticLevels
                        for gamma in gammaLevels
                        for tau in tauLevels
-                       for learnInterval in learnIntervalLevels]
+                       for learnInterval in learnIntervalLevels
+                       for fileID in fileIDLevels]
 
     conditions = []
     for condition in conditionLevels:
-        mapSize, colorA, colorB, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval = condition
+        mapSize, colorA, colorB, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval, fileID = condition
         parameters = {'mapSize': mapSize, 'colorA': colorA, 'colorB': colorB, 'maxEpisode': maxEpisode, 'maxTimeStep': maxTimeStep,
                       'bufferSize': bufferSize, 'minibatchSize': minibatchSize, 'learningRateActor': learningRateActor,
-                      'learningRateCritic': learningRateCritic, 'gamma': gamma, 'tau': tau, 'learnInterval': learnInterval}
+                      'learningRateCritic': learningRateCritic, 'gamma': gamma, 'tau': tau, 'learnInterval': learnInterval, "fileID": fileID}
         conditions.append(parameters)
 
     cmdList = excuteCodeParallel(conditions)

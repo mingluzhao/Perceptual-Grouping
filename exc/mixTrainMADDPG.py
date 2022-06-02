@@ -21,37 +21,53 @@ layerWidth = [32, 32]
 saveAllmodels = True
 
 def main():
-    debug = 0
-    if debug:
-        mapSize = 9
-        colorA = -1
-        colorB = -1
-        maxEpisode = 10000
-        maxTimeStep = 25
-        bufferSize = 1e4
-        minibatchSize = 128
-        learningRateActor = 0.01
-        learningRateCritic = 0.01
-        gamma = 0.95
-        tau = 0.01
-        learnInterval = 100
-        fileID = 1
-    else:
-        print(sys.argv)
-        condition = json.loads(sys.argv[1])
-        mapSize = int(condition['mapSize'])
-        colorA = int(condition['colorA'])
-        colorB = int(condition['colorB'])
-        maxEpisode = int(condition['maxEpisode'])
-        maxTimeStep = int(condition['maxTimeStep'])
-        bufferSize = int(condition['bufferSize'])
-        minibatchSize = int(condition['minibatchSize'])
-        learningRateActor = float(condition['learningRateActor'])
-        learningRateCritic = float(condition['learningRateCritic'])
-        gamma = float(condition['gamma'])
-        tau = float(condition['tau'])
-        learnInterval = int(condition['learnInterval'])
-        fileID = int(condition['fileID'])
+    debug = 1
+    # if debug:
+    #     mapSize = 9
+    #     colorA = -1
+    #     colorB = -1
+    #     maxEpisode = 10000
+    #     maxTimeStep = 25
+    #     bufferSize = 1e4
+    #     minibatchSize = 128
+    #     learningRateActor = 0.01
+    #     learningRateCritic = 0.01
+    #     gamma = 0.95
+    #     tau = 0.01
+    #     learnInterval = 100
+    # else:
+    #     print(sys.argv)
+    #     condition = json.loads(sys.argv[1])
+    #     mapSize = int(condition['mapSize'])
+    #     colorA = int(condition['colorA'])
+    #     colorB = int(condition['colorB'])
+    #     maxEpisode = int(condition['maxEpisode'])
+    #     maxTimeStep = int(condition['maxTimeStep'])
+    #     bufferSize = int(condition['bufferSize'])
+    #     minibatchSize = int(condition['minibatchSize'])
+    #     learningRateActor = float(condition['learningRateActor'])
+    #     learningRateCritic = float(condition['learningRateCritic'])
+    #     gamma = float(condition['gamma'])
+    #     tau = float(condition['tau'])
+    #     learnInterval = int(condition['learnInterval'])
+
+    mapSize = 9
+    colorA = -1
+    colorB = -1
+    maxEpisode = 10000
+    maxTimeStep = 25
+    bufferSize = 1e4
+    minibatchSize = 128
+    learningRateActor = 0.01
+    learningRateCritic = 0.01
+    gamma = 0.95
+    tau = 0.01
+    learnInterval = 100
+
+    switchInterval = 50 # play 50 rounds then switch partner
+
+
+
 
     compulsoryEndTurn = maxTimeStep
     peaceEndTurn = 3
@@ -106,11 +122,11 @@ def main():
     getModelList = [getAgentModel(i) for i in range(numAgents)]
     modelSaveRate = 5000
 
-    fileName = "war{}gridsRandomColor{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv{}layer_file{}_agent".format(mapSize, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval, layerWidth[0], fileID) \
+    fileName = "war{}gridsRandomColor{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv{}layer_agent".format(mapSize, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval, layerWidth[0]) \
         if colorA == -1 else \
-               "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv{}layer_file{}_agent".format(mapSize, colorA, colorB, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval, layerWidth[0], fileID)
+               "war{}grids{}colorA{}colorB{}eps{}step{}buffer{}batch{}acLR{}crLR{}gamma{}tau{}intv{}layer_agent".format(mapSize, colorA, colorB, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval, layerWidth[0])
     print(fileName)
-    modelDir = os.path.join(dirName, '..', 'trainedModels', 'groupTrain')
+    modelDir = os.path.join(dirName, '..', 'trainedModels')
     if not os.path.exists(modelDir):
         os.makedirs(modelDir)
 
