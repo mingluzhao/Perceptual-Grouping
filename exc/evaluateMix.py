@@ -22,6 +22,10 @@ numTrajToSample = 10
 maxEpisode = 20000
 maxTimeStep = 25
 saveInterval = 2000
+<<<<<<< HEAD
+=======
+totalModels = 20
+>>>>>>> 0e14de75a9a93a53285a9733d18aeb2a5b32f248
 
 
 def evaluatePolicyPairs(df):
@@ -77,7 +81,11 @@ def evaluatePolicyPairs(df):
     mapSize, colorATrain, colorBTrain, maxEpisode, maxTimeStep, bufferSize, minibatchSize, learningRateActor, learningRateCritic, gamma, tau, learnInterval,
     layerWidth[0], switchInterval, modelID, shuffleID, switchInterval)
 
+<<<<<<< HEAD
     # war9gridsRandomColor20000eps25step10000buffer64batch0.01acLR0.01crLR0.95gamma0.01tau20intv32layer500switch_model14_shuffle39_500eps.meta
+=======
+    # war9gridsRandomColor20000eps25step10000buffer64batch0.01acLR0.01crLR0.95gamma0.01tau20intv32layer1000switch_model1*
+>>>>>>> 0e14de75a9a93a53285a9733d18aeb2a5b32f248
 
     dirName = os.path.dirname(__file__)
     if isinstance(modelType1, int) or isinstance(modelType2, int):
@@ -147,6 +155,7 @@ def evaluatePolicyPairs(df):
                       })
 
 def main():
+<<<<<<< HEAD
     for switchInterval in [200, 500, 1000]:
         independentVariables = dict()
         # environment parameters
@@ -184,13 +193,56 @@ def main():
         saveToPickle(resultDF, os.path.join(resultPath, 'evalResult_mix_8.pkl'))
         resultDF.to_csv(os.path.join(resultPath, 'evalResult_mix_8.csv'))
         print("Saved to ",  os.path.join(resultPath, 'evalResult_mix_8.pkl'))
+=======
+    for switchInterval in [1000]: #[200, 500, 1000]:
+        # independentVariables = dict()
+        # # environment parameters
+        # independentVariables['mapSize'] = [8]
+        # independentVariables['colorTrain'] = [(-1, -1)]
+        # independentVariables['colorTest'] = [(4, 4), (0, 8)]
+        # independentVariables['soldiers'] = [(10, 10), (9, 9), (8, 8), (7, 7), (6, 6), (5, 5), (7, 9), (6, 8), (7, 10), (10, 8), (9, 6), (7, 5), (10, 5), (9, 4), (8, 4), (3, 7), (5, 10), (4, 9)]
+        # # training parameters
+        # # independentVariables['trainEps'] = np.arange(saveInterval, maxEpisode, saveInterval)
+        # # independentVariables['evalSequence'] = [(0, 1), (0, 'random'), (1, 'random'), ('random', 0), ('random', 1), ('random', 'random')]
+        # independentVariables['evalSequence'] = [(0, 1)]
+        # independentVariables['bufferSize'] = [10000]
+        # independentVariables['minibatchSize'] = [64]
+        # independentVariables['learnInterval'] = [20]
+        # independentVariables['layerWidth'] = [32]
+        # independentVariables['learningRateActor'] = [0.01]
+        # independentVariables['learningRateCritic'] = [0.01]
+        # independentVariables['gamma'] = [0.95]
+        # independentVariables['tau'] = [0.01]
+        #
+        # independentVariables['modelPairs'] = np.reshape(list(range(20)), (-1, 2)).tolist()
+        # independentVariables['switchInterval'] = [switchInterval]
+        # independentVariables['shuffleID'] = list(range(int(maxEpisode/switchInterval)))
+        #
+        # levelNames = list(independentVariables.keys())
+        # levelValues = list(independentVariables.values())
+        # levelIndex = pd.MultiIndex.from_product(levelValues, names=levelNames)
+        # toSplitFrame = pd.DataFrame(index=levelIndex)
+        # resultDF = toSplitFrame.groupby(levelNames).apply(evaluatePolicyPairs)
+        #
+        # resultPath = os.path.join(dirName, '..', 'evalResults')
+        # if not os.path.exists(resultPath):
+        #     os.makedirs(resultPath)
+        #
+        # saveToPickle(resultDF, os.path.join(resultPath, 'evalResult_mix_8.pkl'))
+        # resultDF.to_csv(os.path.join(resultPath, 'evalResult_mix_8.csv'))
+        # print("Saved to ",  os.path.join(resultPath, 'evalResult_mix_8.pkl'))
+>>>>>>> 0e14de75a9a93a53285a9733d18aeb2a5b32f248
 
 
         independentVariables = dict()
         independentVariables['mapSize'] = [9]
         independentVariables['colorTrain'] = [(-1, -1)]
         independentVariables['colorTest'] = [(4, 5), (0, 9)]
+<<<<<<< HEAD
         independentVariables['soldiers'] = [(10, 10), (9, 9), (8, 8), (7, 7), (6, 6), (5, 5), (7, 9), (6, 8), (7, 10), (10, 8), (9, 6), (7, 5), (10, 5), (9, 4), (8, 4), (3, 7), (5, 10), (4, 9)]
+=======
+        independentVariables['soldiers'] = [(10, 10)]#, (9, 9), (8, 8), (7, 7), (6, 6), (5, 5), (7, 9), (6, 8), (7, 10), (10, 8), (9, 6), (7, 5), (10, 5), (9, 4), (8, 4), (3, 7), (5, 10), (4, 9)]
+>>>>>>> 0e14de75a9a93a53285a9733d18aeb2a5b32f248
         # training parameters
         # independentVariables['trainEps'] = np.arange(saveInterval, maxEpisode, saveInterval)
         # independentVariables['evalSequence'] = [(0, 1), (0, 'random'), (1, 'random'), ('random', 0), ('random', 1), ('random', 'random')]
@@ -204,6 +256,14 @@ def main():
         independentVariables['gamma'] = [0.95]
         independentVariables['tau'] = [0.01]
 
+<<<<<<< HEAD
+=======
+        independentVariables['modelPairs'] = [(i, i+1) for i in range(10,totalModels) if i % 2 == 0]
+        independentVariables['switchInterval'] = [switchInterval]
+        independentVariables['shuffleID'] = list(range(int(maxEpisode/switchInterval)))
+
+
+>>>>>>> 0e14de75a9a93a53285a9733d18aeb2a5b32f248
         levelNames = list(independentVariables.keys())
         levelValues = list(independentVariables.values())
         levelIndex = pd.MultiIndex.from_product(levelValues, names=levelNames)
